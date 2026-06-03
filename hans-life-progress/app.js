@@ -391,11 +391,11 @@ function renderTimelineView() {
   const container = elements.timelineItemsContainer;
   if (!container) return;
   
-  // Sort tasks chronologically by due date (items with no date go to the end)
+  // Sort tasks chronologically by due date descending (latest task at the top, items with no date go to the end)
   const sortedTasks = [...state.tasks].sort((a, b) => {
     if (!a.due_date) return 1;
     if (!b.due_date) return -1;
-    return a.due_date.localeCompare(b.due_date);
+    return b.due_date.localeCompare(a.due_date);
   });
   
   if (sortedTasks.length === 0) {

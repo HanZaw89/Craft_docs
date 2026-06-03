@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Hans' Life Progress Tracker - Application Logic
+   Our Life Progress Tracker - Application Logic
    ========================================================================== */
 
 // --- Constants ---
@@ -28,16 +28,21 @@ function initDOMElements() {
     syncText: document.querySelector('.sync-text'),
     pulseDot: document.querySelector('.pulse-dot'),
     
-    // Year progress
+    // Concentric Radial Progress elements
     yearProgressCircle: document.getElementById('yearProgressCircle'),
     yearProgressPercent: document.getElementById('yearProgressPercent'),
-    currentYearTitle: document.getElementById('currentYearTitle'),
-    yearProgressSub: document.getElementById('yearProgressSub'),
+    monthProgressCircle: document.getElementById('monthProgressCircle'),
+    monthProgressPercent: document.getElementById('monthProgressPercent'),
+    weekProgressCircle: document.getElementById('weekProgressCircle'),
+    weekProgressPercent: document.getElementById('weekProgressPercent'),
+    dayProgressCircle: document.getElementById('dayProgressCircle'),
+    dayProgressPercent: document.getElementById('dayProgressPercent'),
+    progressMatrixDesc: document.getElementById('progressMatrixDesc'),
     
-    // Stats count
-    statCompleted: document.getElementById('statCompleted'),
-    statInProgress: document.getElementById('statInProgress'),
-    statTodo: document.getElementById('statTodo'),
+    // Assignee stats count
+    statMg: document.getElementById('statMg'),
+    statChitLay: document.getElementById('statChitLay'),
+    statShared: document.getElementById('statShared'),
     statOverdue: document.getElementById('statOverdue'),
     overdueCard: document.getElementById('overdueCard'),
     
@@ -74,12 +79,19 @@ function initDOMElements() {
     editTaskId: document.getElementById('editTaskId'),
     taskTitleInput: document.getElementById('taskTitleInput'),
     taskStatusInput: document.getElementById('taskStatusInput'),
+    taskAssigneeInput: document.getElementById('taskAssigneeInput'),
     taskDueDateInput: document.getElementById('taskDueDateInput'),
     taskActionDateInput: document.getElementById('taskActionDateInput'),
     titleError: document.getElementById('titleError'),
     deleteTaskBtn: document.getElementById('deleteTaskBtn'),
     cancelModalBtn: document.getElementById('cancelModalBtn'),
     closeModalBtn: document.getElementById('closeModalBtn'),
+    
+    // Sidebar
+    upcomingCount: document.getElementById('upcomingCount'),
+    upcomingFeedList: document.getElementById('upcomingFeedList'),
+    motivationTitle: document.getElementById('motivationTitle'),
+    motivationQuote: document.getElementById('motivationQuote'),
     
     // Toast Container
     toastContainer: document.getElementById('toastContainer'),
@@ -91,11 +103,11 @@ document.addEventListener('DOMContentLoaded', () => {
   initDOMElements();
   initTheme();
   setupEventListeners();
-  updateYearProgress();
+  updateAllProgressMetrics();
   fetchTasks();
   
-  // Re-run year progress updater occasionally
-  setInterval(updateYearProgress, 60000);
+  // Re-run time calculations periodically
+  setInterval(updateAllProgressMetrics, 30000);
 });
 
 // --- Theme Management ---
@@ -112,41 +124,63 @@ function toggleTheme() {
   showToast(`Switched to ${newTheme} mode`, 'info');
 }
 
-// --- Year Progress Calculations ---
-function updateYearProgress() {
+// --- Radial Progress Render Utilities ---
+function setRadialOffset(circleEl, percentEl, percentage, radius) {
+  if (!circleEl) return;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (percentage / 100) * circumference;
+  circleEl.style.strokeDashoffset = offset;
+  
+  if (percentEl) {
+    percentEl.textContent = `${Math.round(percentage)}%`;
+  }
+}
+
+// --- Dynamic Progress Metrics Calculations ---
+function updateAllProgressMetrics() {
   const now = new Date();
   const year = now.getFullYear();
   
+  // 1. Year Progress (radius = 55)
   const startOfYear = new Date(year, 0, 1);
   const endOfYear = new Date(year, 11, 31, 23, 59, 59, 999);
+  const yearPercent = ((now - startOfYear) / (endOfYear - startOfYear)) * 100;
+  setRadialOffset(elements.yearProgressCircle, elements.yearProgressPercent, yearPercent, 55);
   
-  const totalMs = endOfYear - startOfYear;
-  const elapsedMs = now - startOfYear;
-  
-  const percentage = (elapsedMs / totalMs) * 100;
-  const roundedPercent = percentage.toFixed(1);
-  
-  // SVG Stroke dash offsets
-  const circumference = 2 * Math.PI * 42; // r=42 -> 263.89
-  const offset = circumference - (percentage / 100) * circumference;
-  
-  if (elements.yearProgressCircle) {
-    elements.yearProgressCircle.style.strokeDashoffset = offset;
-  }
-  if (elements.yearProgressPercent) {
-    elements.yearProgressPercent.textContent = `${Math.round(percentage)}%`;
-  }
-  if (elements.currentYearTitle) {
-    elements.currentYearTitle.textContent = `${year} Year Progress`;
-  }
-  
-  // Custom motivational subtext
-  const dayOfYear = Math.floor(elapsedMs / (1000 * 60 * 60 * 24)) + 1;
+  const dayOfYear = Math.floor((now - startOfYear) / (1000 * 60 * 60 * 24)) + 1;
   const totalDays = isLeapYear(year) ? 366 : 365;
-  
-  if (elements.yearProgressSub) {
-    elements.yearProgressSub.textContent = `Day ${dayOfYear} of ${totalDays}. ${roundedPercent}% of the year elapsed. Make today count!`;
+  if (elements.progressMatrixDesc) {
+    elements.progressMatrixDesc.textContent = `Day ${dayOfYear} of ${totalDays} in ${year}. Keep moving forward!`;
   }
+
+  // 2. Month Progress (radius = 44)
+  const month = now.getMonth();
+  const startOfMonth = new Date(year, month, 1);
+  const endOfMonth = new Date(year, month + 1, 0, 23, 59, 59, 999);
+  const monthPercent = ((now - startOfMonth) / (endOfMonth - startOfMonth)) * 100;
+  setRadialOffset(elements.monthProgressCircle, elements.monthProgressPercent, monthPercent, 44);
+
+  // 3. Week Progress (radius = 33)
+  const dayOfWeek = now.getDay(); // 0 is Sunday
+  const startOfWeek = new Date(now);
+  startOfWeek.setDate(now.getDate() - dayOfWeek);
+  startOfWeek.setHours(0, 0, 0, 0);
+  
+  const endOfWeek = new Date(startOfWeek);
+  endOfWeek.setDate(startOfWeek.getDate() + 6);
+  endOfWeek.setHours(23, 59, 59, 999);
+  
+  const weekPercent = ((now - startOfWeek) / (endOfWeek - startOfWeek)) * 100;
+  setRadialOffset(elements.weekProgressCircle, elements.weekProgressPercent, weekPercent, 33);
+
+  // 4. Day Progress (radius = 22)
+  const startOfDay = new Date(now);
+  startOfDay.setHours(0, 0, 0, 0);
+  const endOfDay = new Date(now);
+  endOfDay.setHours(23, 59, 59, 999);
+  
+  const dayPercent = ((now - startOfDay) / (endOfDay - startOfDay)) * 100;
+  setRadialOffset(elements.dayProgressCircle, elements.dayProgressPercent, dayPercent, 22);
 }
 
 function isLeapYear(year) {
@@ -181,6 +215,27 @@ function isDateOverdue(dueDateStr, status) {
   return dueDateStr < today;
 }
 
+// --- Celebration Animation ---
+function triggerConfetti() {
+  if (typeof confetti === 'function') {
+    confetti({
+      particleCount: 100,
+      spread: 70,
+      origin: { y: 0.75 },
+      colors: ['#7c3aed', '#3b82f6', '#10b981', '#f59e0b', '#ec4899']
+    });
+  }
+}
+
+// --- Assignee Helper Parsers ---
+// Normalizes task title by stripping legacy bracket prefixes if present
+function cleanTaskTitle(rawTitle) {
+  const mgRegex = /^\[Mg\]\s*/i;
+  const clRegex = /^\[Chit Lay\]\s*/i;
+  let title = rawTitle || 'Untitled Goal';
+  return title.replace(clRegex, '').replace(mgRegex, '');
+}
+
 // --- Craft API Services ---
 async function fetchTasks() {
   setLoadingState(true);
@@ -193,20 +248,54 @@ async function fetchTasks() {
     }
     
     const data = await response.json();
-    state.tasks = data.items.map(item => ({
-      id: item.id,
-      title: item.title || 'Untitled Goal',
-      status: item.properties.status || 'To-do',
-      due_date: item.properties.due_date || '',
-      take_action: item.properties.take_action || '',
-    }));
+    const fetchedTasks = data.items.map(item => {
+      const cleanTitle = cleanTaskTitle(item.title);
+      const role = item.properties.role || [];
+      let assignee = 'Shared';
+      if (role.length === 1) {
+        if (role[0] === 'Mg') assignee = 'Mg';
+        else if (role[0] === 'Chit Lay') assignee = 'Chit Lay';
+      } else if (role.length > 1) {
+        assignee = 'Shared';
+      }
+      return {
+        id: item.id,
+        title: cleanTitle,
+        assignee: assignee,
+        rawTitle: item.title || 'Untitled Goal',
+        status: item.properties.status || 'To-do',
+        due_date: item.properties.due_date || '',
+        take_action: item.properties.take_action || '',
+      };
+    });
     
+    // Sort tasks according to saved manual timeline order if exists
+    const savedOrder = localStorage.getItem('timeline_order');
+    if (savedOrder) {
+      try {
+        const orderArray = JSON.parse(savedOrder);
+        const orderMap = new Map(orderArray.map((id, index) => [id, index]));
+        fetchedTasks.sort((a, b) => {
+          const hasA = orderMap.has(a.id);
+          const hasB = orderMap.has(b.id);
+          if (hasA && hasB) return orderMap.get(a.id) - orderMap.get(b.id);
+          if (!hasA && hasB) return -1; // New items go to top
+          if (hasA && !hasB) return 1;
+          return 0;
+        });
+      } catch (e) {
+        console.error('Failed to parse manual timeline order:', e);
+      }
+    }
+    
+    state.tasks = fetchedTasks;
     renderApp();
     updateSyncStatus('Synced with Craft', 'green');
   } catch (error) {
     console.error(error);
     showToast('Failed to load tasks from Craft docs', 'error');
     updateSyncStatus('Sync Error', 'yellow');
+    renderApp(); // Clear loading block displays
   } finally {
     setLoadingState(false);
   }
@@ -224,6 +313,7 @@ async function apiCreateTask(title, properties) {
     
     if (!response.ok) throw new Error('API creation failed');
     showToast('Goal created successfully', 'success');
+    if (properties.status === 'Done') triggerConfetti();
     fetchTasks();
   } catch (error) {
     console.error(error);
@@ -231,7 +321,7 @@ async function apiCreateTask(title, properties) {
   }
 }
 
-async function apiUpdateTask(id, title, properties) {
+async function apiUpdateTask(id, title, properties, suppressReload = false) {
   try {
     const response = await fetch(`${API_BASE_URL}/collections/${COLLECTION_ID}/items`, {
       method: 'PUT',
@@ -242,8 +332,10 @@ async function apiUpdateTask(id, title, properties) {
     });
     
     if (!response.ok) throw new Error('API update failed');
-    showToast('Goal updated successfully', 'success');
-    fetchTasks();
+    if (!suppressReload) {
+      showToast('Goal updated successfully', 'success');
+      fetchTasks();
+    }
   } catch (error) {
     console.error(error);
     showToast('Error updating goal in Craft docs', 'error');
@@ -269,13 +361,12 @@ async function apiDeleteTask(id) {
   }
 }
 
-// --- Sync Badges & Loading states ---
+// --- Loading skeleton states ---
 function setLoadingState(isLoading) {
   state.loading = isLoading;
   if (isLoading) {
     elements.timelineItemsContainer.innerHTML = `
       <div class="loading-placeholder">
-        <div class="skeleton skeleton-timeline-item"></div>
         <div class="skeleton skeleton-timeline-item"></div>
         <div class="skeleton skeleton-timeline-item"></div>
       </div>
@@ -287,6 +378,7 @@ function setLoadingState(isLoading) {
       <tr class="skeleton-row-wrapper"><td colspan="5"><div class="skeleton skeleton-row"></div></td></tr>
       <tr class="skeleton-row-wrapper"><td colspan="5"><div class="skeleton skeleton-row"></div></td></tr>
     `;
+    elements.upcomingFeedList.innerHTML = `<div class="skeleton skeleton-row" style="height:60px; margin-bottom:8px;"></div><div class="skeleton skeleton-row" style="height:60px;"></div>`;
   }
 }
 
@@ -303,27 +395,28 @@ function renderApp() {
   renderTimelineView();
   renderKanbanView();
   renderDirectoryView();
+  renderSidebarWidgets();
   lucide.createIcons(); // Hydrate newly generated icons
 }
 
 // --- Calculations & Dashboard Stats ---
 function calculateStats() {
-  let completed = 0;
-  let inProgress = 0;
-  let todo = 0;
+  let mgCount = 0;
+  let clCount = 0;
+  let sharedCount = 0;
   let overdue = 0;
   
   state.tasks.forEach(task => {
-    if (task.status === 'Done') completed++;
-    else if (task.status === 'In progress') inProgress++;
-    else if (task.status === 'To-do') todo++;
+    if (task.assignee === 'Mg') mgCount++;
+    else if (task.assignee === 'Chit Lay') clCount++;
+    else sharedCount++;
     
     if (isDateOverdue(task.due_date, task.status)) overdue++;
   });
   
-  if (elements.statCompleted) elements.statCompleted.textContent = completed;
-  if (elements.statInProgress) elements.statInProgress.textContent = inProgress;
-  if (elements.statTodo) elements.statTodo.textContent = todo;
+  if (elements.statMg) elements.statMg.textContent = mgCount;
+  if (elements.statChitLay) elements.statChitLay.textContent = clCount;
+  if (elements.statShared) elements.statShared.textContent = sharedCount;
   if (elements.statOverdue) elements.statOverdue.textContent = overdue;
   
   if (elements.overdueCard) {
@@ -340,30 +433,34 @@ function renderTimelineView() {
   const container = elements.timelineItemsContainer;
   if (!container) return;
   
-  // Sort tasks chronologically by due date (items with no date go to the end)
-  const sortedTasks = [...state.tasks].sort((a, b) => {
-    if (!a.due_date) return 1;
-    if (!b.due_date) return -1;
-    return a.due_date.localeCompare(b.due_date);
-  });
+  // Use tasks in their custom manual sorted order
+  const sortedTasks = state.tasks;
   
   if (sortedTasks.length === 0) {
+    const isLocalFile = window.location.protocol === 'file:';
     container.innerHTML = `
       <div class="empty-state">
         <i data-lucide="compass" class="empty-icon"></i>
         <h4>No goals found</h4>
-        <p>Click "New Goal" to add one to your Craft docs.</p>
+        ${isLocalFile ? `
+          <p style="color: var(--danger-color); max-width: 500px; margin: 10px auto 0 auto; line-height: 1.4; font-size: 0.8125rem;">
+            <strong>Warning: CORS policy block detected.</strong> You opened this file directly via <code>file://</code>. 
+            API requests require a web server to function. Please run the server:
+            <br><code style="background:var(--bg-primary); padding:3px 8px; border-radius:4px; display:inline-block; margin-top:8px;">python3 -m http.server 8000</code>
+            and visit <a href="http://localhost:8000" target="_blank" style="color:var(--accent-light);">http://localhost:8000</a>.
+          </p>
+        ` : `
+          <p>Click "New Goal" to add one to your Craft docs.</p>
+        `}
       </div>
     `;
     return;
   }
   
   let html = '';
-  
-  // Determine "Current Focus" (first in-progress or to-do task with a due date)
   let foundFocus = false;
   
-  sortedTasks.forEach(task => {
+  sortedTasks.forEach((task, index) => {
     const isOverdue = isDateOverdue(task.due_date, task.status);
     let statusClass = task.status.toLowerCase().replace(' ', '-');
     if (isOverdue) statusClass = 'overdue';
@@ -379,16 +476,26 @@ function renderTimelineView() {
     else if (isOverdue) nodeIcon = 'alert-triangle';
     else if (task.status === 'In progress') nodeIcon = 'trending-up';
     
+    // Assignee styling highlights
+    let assigneeLabel = '';
+    if (task.assignee === 'Mg') {
+      assigneeLabel = `<span style="font-size: 0.6875rem; font-weight: 700; color: hsl(200, 85%, 52%); background: rgba(56, 189, 248, 0.08); padding: 2px 6px; border-radius: var(--radius-sm); margin-right: 6px;">Mg</span>`;
+    } else if (task.assignee === 'Chit Lay') {
+      assigneeLabel = `<span style="font-size: 0.6875rem; font-weight: 700; color: hsl(350, 85%, 65%); background: rgba(244, 63, 94, 0.08); padding: 2px 6px; border-radius: var(--radius-sm); margin-right: 6px;">Chit Lay</span>`;
+    }
+    
+    const delay = index * 0.08;
+    
     html += `
-      <div class="timeline-item ${statusClass}" onclick="openEditModal('${task.id}')">
+      <div class="timeline-item ${statusClass}" style="animation-delay: ${delay}s" draggable="true" data-id="${task.id}" onclick="if(!window.isDraggingTimeline) openEditModal('${task.id}')">
         <div class="timeline-node-wrapper">
-          <div class="timeline-node" title="Status: ${task.status}">
+          <div class="timeline-node" title="Click to toggle completion" onclick="event.stopPropagation(); toggleTaskCompleted('${task.id}')">
             <i data-lucide="${nodeIcon}"></i>
           </div>
         </div>
         <div class="timeline-card">
           <div class="timeline-card-header">
-            <h4 class="timeline-card-title">${escapeHTML(task.title)}</h4>
+            <h4 class="timeline-card-title">${assigneeLabel}${escapeHTML(task.title)}</h4>
             <span class="status-badge ${statusClass}">
               ${isOverdue ? 'Overdue' : task.status}
             </span>
@@ -416,7 +523,7 @@ function renderTimelineView() {
           </div>
           
           ${isCurrentFocus ? `
-            <div style="margin-top: 10px; display: inline-flex; align-items: center; gap: 4px; font-size: 0.75rem; font-weight: 700; color: var(--accent); background: rgba(var(--accent-hue), 85%, 10%); border: 1px dashed var(--accent); padding: 2px 8px; border-radius: var(--radius-sm);">
+            <div style="margin-top: 10px; display: inline-flex; align-items: center; gap: 4px; font-size: 0.72rem; font-weight: 700; color: var(--accent); background: rgba(124, 58, 237, 0.08); border: 1px dashed var(--accent); padding: 3px 8px; border-radius: var(--radius-sm);">
               <i data-lucide="sparkles" style="width: 12px; height: 12px;"></i> CURRENT FOCUS
             </div>
           ` : ''}
@@ -436,7 +543,6 @@ function renderKanbanView() {
     'Done': { container: elements.cardsDone, countEl: elements.countColDone, html: '' }
   };
   
-  // Clear counts
   let counts = { 'To-do': 0, 'In progress': 0, 'Done': 0 };
   
   state.tasks.forEach(task => {
@@ -471,6 +577,16 @@ function renderKanbanView() {
       `;
     }
     
+    // Assignee initials badge
+    let initialsBadge = '';
+    if (task.assignee === 'Mg') {
+      initialsBadge = `<span style="font-size:0.625rem; font-weight:800; padding:2px 6px; border-radius:4px; color:hsl(200,85%,50%); background:rgba(56,189,248,0.1); border:1px solid rgba(56,189,248,0.2);">MG</span>`;
+    } else if (task.assignee === 'Chit Lay') {
+      initialsBadge = `<span style="font-size:0.625rem; font-weight:800; padding:2px 6px; border-radius:4px; color:hsl(350,85%,65%); background:rgba(244,63,94,0.1); border:1px solid rgba(244,63,94,0.2);">CL</span>`;
+    } else {
+      initialsBadge = `<span style="font-size:0.625rem; font-weight:800; padding:2px 6px; border-radius:4px; color:var(--text-secondary); background:var(--bg-primary); border:1px solid var(--border-color);">BOTH</span>`;
+    }
+    
     cols[status].html += `
       <div class="kanban-card" onclick="openEditModal('${task.id}')">
         <h4>${escapeHTML(task.title)}</h4>
@@ -485,8 +601,11 @@ function renderKanbanView() {
               <span class="text-muted">Undated</span>
             `}
           </div>
-          <div class="kanban-actions">
-            ${actionButtons}
+          <div style="display:flex; align-items:center; gap:8px;">
+            ${initialsBadge}
+            <div class="kanban-actions">
+              ${actionButtons}
+            </div>
           </div>
         </div>
       </div>
@@ -508,7 +627,7 @@ function renderKanbanView() {
   });
 }
 
-// --- Quick Status Updates ---
+// --- Quick Status Shifters ---
 async function shiftTaskStatus(id, newStatus) {
   const task = state.tasks.find(t => t.id === id);
   if (!task) return;
@@ -517,15 +636,29 @@ async function shiftTaskStatus(id, newStatus) {
   task.status = newStatus;
   renderApp();
   
-  // Trigger remote API update
+  if (newStatus === 'Done') {
+    triggerConfetti();
+    showToast(`Completed goal: "${task.title}"! 🎉`, 'success');
+  }
+  
   const properties = {
     status: newStatus,
     due_date: task.due_date || '',
-    take_action: task.take_action || ''
+    take_action: task.take_action || '',
+    role: task.assignee === 'Shared' ? ['Mg', 'Chit Lay'] : [task.assignee]
   };
   
   updateSyncStatus('Syncing Status...', 'yellow');
-  await apiUpdateTask(id, task.title, properties);
+  await apiUpdateTask(id, task.title, properties, true); // suppressReload = true for fast UI feedback
+}
+
+async function toggleTaskCompleted(id) {
+  const task = state.tasks.find(t => t.id === id);
+  if (!task) return;
+  
+  const newStatus = task.status === 'Done' ? 'To-do' : 'Done';
+  await shiftTaskStatus(id, newStatus);
+  fetchTasks();
 }
 
 // --- View 3: Task Directory Rendering ---
@@ -533,15 +666,10 @@ function renderDirectoryView() {
   const tableBody = elements.directoryTableBody;
   if (!tableBody) return;
   
-  // Apply Search and Filters
   let filteredTasks = state.tasks.filter(task => {
-    // Search filter
     const matchesSearch = task.title.toLowerCase().includes(state.searchQuery.toLowerCase());
-    
-    // Status filter
     const matchesStatus = state.statusFilter === 'all' || task.status === state.statusFilter;
     
-    // Date filter
     let matchesDate = true;
     if (state.dateFilter === 'overdue') {
       matchesDate = isDateOverdue(task.due_date, task.status);
@@ -554,14 +682,12 @@ function renderDirectoryView() {
     return matchesSearch && matchesStatus && matchesDate;
   });
   
-  // Sort
+  // Sorting
   filteredTasks.sort((a, b) => {
     let valA = a[state.sortField] || '';
     let valB = b[state.sortField] || '';
     
-    // Custom sort values logic
     if (state.sortField === 'due_date' || state.sortField === 'take_action') {
-      // Empty dates go to the bottom
       if (!valA) return 1;
       if (!valB) return -1;
     }
@@ -570,7 +696,6 @@ function renderDirectoryView() {
     return state.sortAsc ? comparison : -comparison;
   });
   
-  // Empty State Toggle
   if (filteredTasks.length === 0) {
     tableBody.innerHTML = '';
     elements.tableEmptyState.style.display = 'flex';
@@ -585,15 +710,33 @@ function renderDirectoryView() {
     let statusClass = task.status.toLowerCase().replace(' ', '-');
     if (isOverdue) statusClass = 'overdue';
     
+    let assigneeBadge = '';
+    if (task.assignee === 'Mg') {
+      assigneeBadge = `<span style="font-size:0.625rem; font-weight:800; padding:2px 6px; border-radius:4px; color:hsl(200,85%,50%); background:rgba(56,189,248,0.1);">Mg</span>`;
+    } else if (task.assignee === 'Chit Lay') {
+      assigneeBadge = `<span style="font-size:0.625rem; font-weight:800; padding:2px 6px; border-radius:4px; color:hsl(350,85%,65%); background:rgba(244,63,94,0.1);">Chit Lay</span>`;
+    } else {
+      assigneeBadge = `<span style="font-size:0.625rem; font-weight:800; padding:2px 6px; border-radius:4px; color:var(--text-secondary); background:var(--bg-tertiary);">Shared</span>`;
+    }
+    
     html += `
       <tr>
         <td>
-          <div class="table-title-cell">${escapeHTML(task.title)}</div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <button style="background:transparent; border:none; color:var(--text-muted); cursor:pointer; padding:2px; transition:var(--transition-fast);" 
+                    onclick="event.stopPropagation(); toggleTaskCompleted('${task.id}')"
+                    title="${task.status === 'Done' ? 'Mark Incomplete' : 'Mark Complete'}">
+              <i data-lucide="${task.status === 'Done' ? 'check-square' : 'square'}" 
+                 style="width: 18px; height: 18px; color: ${task.status === 'Done' ? 'var(--done-color)' : 'var(--text-muted)'}"></i>
+            </button>
+            <div class="table-title-cell">${escapeHTML(task.title)}</div>
+          </div>
         </td>
         <td>
-          <span class="status-badge ${statusClass}">
-            ${isOverdue ? 'Overdue' : task.status}
-          </span>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="status-badge ${statusClass}">${isOverdue ? 'Overdue' : task.status}</span>
+            ${assigneeBadge}
+          </div>
         </td>
         <td class="${isOverdue ? 'overdue-text' : ''}">
           ${task.due_date ? formatDateFriendly(task.due_date) : '<span class="text-muted">-</span>'}
@@ -618,6 +761,87 @@ function renderDirectoryView() {
   tableBody.innerHTML = html;
 }
 
+// --- Render Sidebar Widgets (Upcoming list & Motivation Quotes) ---
+function renderSidebarWidgets() {
+  // 1. Upcoming deadlines feed
+  const upcomingListContainer = elements.upcomingFeedList;
+  if (!upcomingListContainer) return;
+  
+  const upcomingTasks = state.tasks.filter(task => {
+    return task.status !== 'Done' && (task.due_date || task.take_action);
+  });
+  
+  upcomingTasks.sort((a, b) => {
+    const dateA = a.due_date || a.take_action;
+    const dateB = b.due_date || b.take_action;
+    return dateA.localeCompare(dateB);
+  });
+  
+  const topUpcoming = upcomingTasks.slice(0, 3);
+  elements.upcomingCount.textContent = upcomingTasks.length;
+  
+  if (topUpcoming.length === 0) {
+    upcomingListContainer.innerHTML = `
+      <p class="text-muted text-center" style="font-size:0.8125rem; padding: 15px 0;">No active timeframes.</p>
+    `;
+  } else {
+    let html = '';
+    topUpcoming.forEach(task => {
+      const isOverdue = isDateOverdue(task.due_date, task.status);
+      const targetDate = task.due_date || task.take_action;
+      const label = task.due_date ? 'Due' : 'Action';
+      
+      let assigneePrefix = '';
+      if (task.assignee === 'Mg') assigneePrefix = `<span style="color:hsl(200,85%,50%); font-weight:700;">MG: </span>`;
+      else if (task.assignee === 'Chit Lay') assigneePrefix = `<span style="color:hsl(350,85%,65%); font-weight:700;">CL: </span>`;
+      
+      html += `
+        <div class="upcoming-item" onclick="openEditModal('${task.id}')">
+          <div class="upcoming-info">
+            <span class="upcoming-title">${assigneePrefix}${escapeHTML(task.title)}</span>
+            <span class="upcoming-date ${isOverdue ? 'overdue' : ''}">
+              <i data-lucide="calendar"></i>
+              <span>${label}: ${formatDateFriendly(targetDate)}</span>
+            </span>
+          </div>
+          <div class="upcoming-action-indicator">
+            <i data-lucide="chevron-right" style="width:14px; height:14px;"></i>
+          </div>
+        </div>
+      `;
+    });
+    upcomingListContainer.innerHTML = html;
+  }
+  
+  // 2. Motivational Card Quote
+  const totalGoals = state.tasks.length;
+  const completedGoals = state.tasks.filter(t => t.status === 'Done').length;
+  const rate = totalGoals > 0 ? (completedGoals / totalGoals) * 100 : 0;
+  
+  let title = 'Set Your Focus';
+  let quote = '"Small, consistent actions build outstanding accomplishments."';
+  
+  if (totalGoals === 0) {
+    title = 'Start Your Journey';
+    quote = '"The secret of getting ahead is getting started." — Mark Twain';
+  } else if (rate === 100) {
+    title = 'Outstanding Achiever!';
+    quote = '"All goals achieved! Take time to appreciate your diligence." 🎉';
+  } else if (rate >= 70) {
+    title = 'Finishing Strong!';
+    quote = '"Incredible momentum! You are nearing completion. Finish strong."';
+  } else if (rate >= 40) {
+    title = 'Excellent Progress!';
+    quote = '"You\'re more than halfway there! Keep pushing your momentum."';
+  } else if (rate > 0) {
+    title = 'Solid Start!';
+    quote = '"Good start! Every single step forward brings you closer."';
+  }
+  
+  if (elements.motivationTitle) elements.motivationTitle.textContent = title;
+  if (elements.motivationQuote) elements.motivationQuote.textContent = quote;
+}
+
 // --- Modal Management ---
 function openCreateModal() {
   elements.modalTitle.textContent = 'Add New Goal';
@@ -637,6 +861,7 @@ function openEditModal(id) {
   elements.editTaskId.value = task.id;
   elements.taskTitleInput.value = task.title;
   elements.taskStatusInput.value = task.status;
+  elements.taskAssigneeInput.value = task.assignee;
   elements.taskDueDateInput.value = task.due_date;
   elements.taskActionDateInput.value = task.take_action;
   
@@ -650,17 +875,17 @@ function closeModal() {
   elements.taskModal.classList.remove('active');
 }
 
-// --- Submit Dialog Form ---
+// --- Form Submissions ---
 async function handleFormSubmit(e) {
   e.preventDefault();
   
   const id = elements.editTaskId.value;
   const title = elements.taskTitleInput.value.trim();
   const status = elements.taskStatusInput.value;
+  const assignee = elements.taskAssigneeInput.value;
   const due_date = elements.taskDueDateInput.value;
   const take_action = elements.taskActionDateInput.value;
   
-  // Validation
   if (!title) {
     elements.titleError.classList.add('active');
     elements.taskTitleInput.focus();
@@ -670,13 +895,16 @@ async function handleFormSubmit(e) {
   closeModal();
   setLoadingState(true);
   
-  const properties = { status, due_date, take_action };
+  const properties = { 
+    status, 
+    due_date, 
+    take_action,
+    role: assignee === 'Shared' ? ['Mg', 'Chit Lay'] : [assignee]
+  };
   
   if (id) {
-    // Edit existing goal
     await apiUpdateTask(id, title, properties);
   } else {
-    // Create new goal
     await apiCreateTask(title, properties);
   }
 }
@@ -708,10 +936,8 @@ async function handleDeleteBtnClick() {
 
 // --- Event Listeners Setup ---
 function setupEventListeners() {
-  // Theme toggle
   elements.themeToggleBtn.addEventListener('click', toggleTheme);
   
-  // Sync Badge Click (manual refresh)
   elements.syncBadge.addEventListener('click', () => {
     if (!state.loading) {
       showToast('Refreshing data from Craft docs...', 'info');
@@ -724,42 +950,59 @@ function setupEventListeners() {
     tab.addEventListener('click', (e) => {
       const selectedTab = e.currentTarget.getAttribute('data-tab');
       
-      // Update active tab buttons
       elements.navTabs.forEach(t => t.classList.remove('active'));
       e.currentTarget.classList.add('active');
       
-      // Update active panel
       document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
       if (selectedTab === 'timeline') elements.viewTimeline.classList.add('active');
       else if (selectedTab === 'kanban') elements.viewKanban.classList.add('active');
       else if (selectedTab === 'directory') elements.viewDirectory.classList.add('active');
       
       state.currentTab = selectedTab;
-      lucide.createIcons(); // Hydrate any loaded icons
+      lucide.createIcons();
     });
   });
   
-  // Dashboard card status filters
+  // Mini stat cards filter links (Assignee sorting & filtering)
   document.querySelectorAll('.mini-stat-card').forEach(card => {
     card.addEventListener('click', (e) => {
-      const statusFilterVal = e.currentTarget.getAttribute('data-status-filter');
+      const assigneeFilterVal = e.currentTarget.getAttribute('data-assignee-filter');
       const isOverdueFilter = e.currentTarget.id === 'overdueCard';
       
-      // Switch tab to Directory
       const directoryTab = document.querySelector('.nav-tab[data-tab="directory"]');
       if (directoryTab) directoryTab.click();
       
-      // Apply filters
       if (isOverdueFilter) {
         elements.statusFilterSelect.value = 'all';
         elements.dateFilterSelect.value = 'overdue';
         state.statusFilter = 'all';
         state.dateFilter = 'overdue';
-      } else if (statusFilterVal) {
-        elements.statusFilterSelect.value = statusFilterVal;
+        state.searchQuery = '';
+        elements.taskSearchInput.value = '';
+      } else if (assigneeFilterVal) {
+        elements.statusFilterSelect.value = 'all';
         elements.dateFilterSelect.value = 'all';
-        state.statusFilter = statusFilterVal;
+        state.statusFilter = 'all';
         state.dateFilter = 'all';
+        
+        // Simple search query mock to filter by assignee prefix
+        if (assigneeFilterVal === 'Mg') {
+          state.searchQuery = '';
+          elements.taskSearchInput.value = '';
+          // Filter tasks locally by assignee
+          filteredTasksHandler('Mg');
+          return;
+        } else if (assigneeFilterVal === 'Chit Lay') {
+          state.searchQuery = '';
+          elements.taskSearchInput.value = '';
+          filteredTasksHandler('Chit Lay');
+          return;
+        } else {
+          state.searchQuery = '';
+          elements.taskSearchInput.value = '';
+          filteredTasksHandler('Shared');
+          return;
+        }
       }
       
       renderDirectoryView();
@@ -767,7 +1010,7 @@ function setupEventListeners() {
     });
   });
   
-  // Modal Buttons
+  // Modal Actions
   document.querySelectorAll('.btn-new-task').forEach(btn => {
     btn.addEventListener('click', openCreateModal);
   });
@@ -776,16 +1019,14 @@ function setupEventListeners() {
   elements.deleteTaskBtn.addEventListener('click', handleDeleteBtnClick);
   elements.taskForm.addEventListener('submit', handleFormSubmit);
   
-  // Close modal on overlay click
   elements.taskModal.addEventListener('click', (e) => {
     if (e.target === elements.taskModal) closeModal();
   });
   
-  // Directory Search and Filters
+  // Directory Search & Filters
   elements.taskSearchInput.addEventListener('input', (e) => {
     state.searchQuery = e.target.value;
     
-    // Toggle clear search button visibility
     if (state.searchQuery) {
       elements.clearSearchBtn.style.display = 'flex';
     } else {
@@ -816,7 +1057,7 @@ function setupEventListeners() {
     lucide.createIcons();
   });
   
-  // Table Sorting Headers
+  // Table Sorting
   elements.tableHeaders.forEach(th => {
     th.addEventListener('click', (e) => {
       const field = e.currentTarget.getAttribute('data-sort');
@@ -828,7 +1069,6 @@ function setupEventListeners() {
         state.sortAsc = true;
       }
       
-      // Update sort icons
       elements.tableHeaders.forEach(h => {
         const icon = h.querySelector('.sort-icon');
         if (icon) {
@@ -845,6 +1085,133 @@ function setupEventListeners() {
       lucide.createIcons();
     });
   });
+
+  // Timeline Drag & Drop manual sorting
+  const timelineContainer = elements.timelineItemsContainer;
+  if (timelineContainer) {
+    timelineContainer.addEventListener('dragstart', (e) => {
+      const item = e.target.closest('.timeline-item');
+      if (!item) return;
+      window.isDraggingTimeline = true;
+      item.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', item.getAttribute('data-id'));
+    });
+    
+    timelineContainer.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      const draggingEl = timelineContainer.querySelector('.timeline-item.dragging');
+      const targetEl = e.target.closest('.timeline-item');
+      if (draggingEl && targetEl && draggingEl !== targetEl) {
+        const rect = targetEl.getBoundingClientRect();
+        const next = (e.clientY - rect.top) / (rect.bottom - rect.top) > 0.5;
+        timelineContainer.insertBefore(draggingEl, next ? targetEl.nextSibling : targetEl);
+      }
+    });
+
+    timelineContainer.addEventListener('dragend', (e) => {
+      const item = e.target.closest('.timeline-item');
+      if (item) {
+        item.classList.remove('dragging');
+      }
+      saveManualOrder();
+      setTimeout(() => {
+        window.isDraggingTimeline = false;
+      }, 100);
+    });
+  }
+}
+
+function saveManualOrder() {
+  const timelineItemsContainer = document.getElementById('timelineItemsContainer');
+  if (!timelineItemsContainer) return;
+  const itemEls = timelineItemsContainer.querySelectorAll('.timeline-item');
+  const order = Array.from(itemEls).map(el => el.getAttribute('data-id')).filter(Boolean);
+  localStorage.setItem('timeline_order', JSON.stringify(order));
+  
+  // Re-sort state.tasks to match the new manual order
+  const orderMap = new Map(order.map((id, index) => [id, index]));
+  state.tasks.sort((a, b) => {
+    const hasA = orderMap.has(a.id);
+    const hasB = orderMap.has(b.id);
+    if (hasA && hasB) {
+      return orderMap.get(a.id) - orderMap.get(b.id);
+    }
+    if (!hasA && hasB) return -1;
+    if (hasA && !hasB) return 1;
+    return 0;
+  });
+  
+  renderApp();
+}
+
+// Custom handler for filtering directory list when stats card is clicked
+function filteredTasksHandler(assignee) {
+  const tableBody = elements.directoryTableBody;
+  if (!tableBody) return;
+  
+  let filtered = state.tasks.filter(t => t.assignee === assignee);
+  
+  if (filtered.length === 0) {
+    tableBody.innerHTML = '';
+    elements.tableEmptyState.style.display = 'flex';
+    return;
+  }
+  
+  elements.tableEmptyState.style.display = 'none';
+  
+  let html = '';
+  filtered.forEach(task => {
+    const isOverdue = isDateOverdue(task.due_date, task.status);
+    let statusClass = task.status.toLowerCase().replace(' ', '-');
+    if (isOverdue) statusClass = 'overdue';
+    
+    let assigneeBadge = `<span style="font-size:0.625rem; font-weight:800; padding:2px 6px; border-radius:4px; color:${assignee === 'Mg' ? 'hsl(200,85%,50%)' : 'hsl(350,85%,65%)'}; background:${assignee === 'Mg' ? 'rgba(56,189,248,0.1)' : 'rgba(244,63,94,0.1)'};">${assignee}</span>`;
+    if (assignee === 'Shared') {
+      assigneeBadge = `<span style="font-size:0.625rem; font-weight:800; padding:2px 6px; border-radius:4px; color:var(--text-secondary); background:var(--bg-tertiary);">Shared</span>`;
+    }
+    
+    html += `
+      <tr>
+        <td>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <button style="background:transparent; border:none; color:var(--text-muted); cursor:pointer; padding:2px; transition:var(--transition-fast);" 
+                    onclick="event.stopPropagation(); toggleTaskCompleted('${task.id}')"
+                    title="${task.status === 'Done' ? 'Mark Incomplete' : 'Mark Complete'}">
+              <i data-lucide="${task.status === 'Done' ? 'check-square' : 'square'}" 
+                 style="width: 18px; height: 18px; color: ${task.status === 'Done' ? 'var(--done-color)' : 'var(--text-muted)'}"></i>
+            </button>
+            <div class="table-title-cell">${escapeHTML(task.title)}</div>
+          </div>
+        </td>
+        <td>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="status-badge ${statusClass}">${isOverdue ? 'Overdue' : task.status}</span>
+            ${assigneeBadge}
+          </div>
+        </td>
+        <td class="${isOverdue ? 'overdue-text' : ''}">
+          ${task.due_date ? formatDateFriendly(task.due_date) : '<span class="text-muted">-</span>'}
+        </td>
+        <td>
+          ${task.take_action ? formatDateFriendly(task.take_action) : '<span class="text-muted">-</span>'}
+        </td>
+        <td>
+          <div class="table-ops-cell">
+            <button class="table-btn" title="Edit Goal" onclick="openEditModal('${task.id}')">
+              <i data-lucide="edit-3"></i>
+            </button>
+            <button class="table-btn danger-text" title="Delete Goal" onclick="deleteTaskDirect('${task.id}')">
+              <i data-lucide="trash-2"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  });
+  
+  tableBody.innerHTML = html;
+  lucide.createIcons();
 }
 
 // --- Toast Notification Utilities ---
@@ -865,7 +1232,6 @@ function showToast(message, type = 'info') {
   elements.toastContainer.appendChild(toast);
   lucide.createIcons(); // Hydrate the icon
   
-  // Slide out after 4 seconds (matching animation duration)
   setTimeout(() => {
     toast.classList.add('removing');
     toast.addEventListener('animationend', () => {
@@ -874,7 +1240,7 @@ function showToast(message, type = 'info') {
   }, 4000);
 }
 
-// --- Helper Functions ---
+// --- Helpers ---
 function escapeHTML(str) {
   if (!str) return '';
   return str.replace(/[&<>'"]/g, 

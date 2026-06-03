@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hans' Life Progress - Craft Task Manager</title>
+  <title>Our Life Progress - Craft Task Manager</title>
   
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,6 +12,9 @@
   
   <!-- Lucide Icons CDN -->
   <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- Canvas Confetti CDN for reward celebrations -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
   
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -28,12 +31,12 @@
     <header class="app-header">
       <div class="header-main">
         <div class="logo-area">
-          <div class="logo-icon-wrapper">
-            <i data-lucide="compass" class="logo-icon"></i>
+          <div class="logo-image-wrapper">
+            <img src="235E5853-99EE-4352-BD2D-BB996A7C054F.JPG" alt="Our Life Progress Logo" class="logo-avatar">
           </div>
           <div>
-            <h1>Hans' Life Progress</h1>
-            <p class="subtitle">Craft Docs Personal Goal & Task Tracker</p>
+            <h1>Our Life Progress</h1>
+            <p class="subtitle">Craft Docs Shared Goal & Task Tracker</p>
           </div>
         </div>
         <div class="header-actions">
@@ -49,237 +52,301 @@
       </div>
     </header>
 
-    <main class="app-content">
+    <!-- Top Overview: Progress Matrix & Assignee Stats -->
+    <section class="stats-overview">
       
-      <!-- Statistics Dashboard Summary -->
-      <section class="stats-overview">
-        <div class="stat-card year-progress-card">
-          <div class="radial-progress-wrapper">
-            <svg class="radial-progress" viewBox="0 0 100 100">
-              <circle class="bg" cx="50" cy="50" r="42" />
-              <circle class="progress" id="yearProgressCircle" cx="50" cy="50" r="42" />
-            </svg>
-            <div class="radial-label">
-              <span id="yearProgressPercent" class="number">--%</span>
-              <span id="yearProgressLabel" class="text">Year Progress</span>
-            </div>
-          </div>
-          <div class="year-progress-info">
-            <h3 id="currentYearTitle">Year Progress</h3>
-            <p id="yearProgressSub" class="card-detail-text">Determining current day details...</p>
-          </div>
+      <!-- Progress Matrix (Concentric Rings) -->
+      <div class="stat-card progress-matrix-card">
+        <div class="matrix-header">
+          <h3><i data-lucide="activity" class="title-icon"></i> Life Progress Matrix</h3>
+          <p id="progressMatrixDesc" class="card-detail-text">Time elapsed tracking metrics</p>
         </div>
-
-        <div class="stat-cards-grid">
-          <div class="mini-stat-card" data-status-filter="Done">
-            <div class="card-icon-wrapper done">
-              <i data-lucide="check-circle-2"></i>
-            </div>
-            <div class="card-data">
-              <span class="stat-count" id="statCompleted">0</span>
-              <span class="stat-label">Completed Goals</span>
-            </div>
-          </div>
-
-          <div class="mini-stat-card" data-status-filter="In progress">
-            <div class="card-icon-wrapper in-progress">
-              <i data-lucide="trending-up"></i>
-            </div>
-            <div class="card-data">
-              <span class="stat-count" id="statInProgress">0</span>
-              <span class="stat-label">In Progress</span>
-            </div>
-          </div>
-
-          <div class="mini-stat-card" data-status-filter="To-do">
-            <div class="card-icon-wrapper todo">
-              <i data-lucide="circle"></i>
-            </div>
-            <div class="card-data">
-              <span class="stat-count" id="statTodo">0</span>
-              <span class="stat-label">To-Do List</span>
-            </div>
-          </div>
-
-          <div class="mini-stat-card overdue" id="overdueCard">
-            <div class="card-icon-wrapper danger">
-              <i data-lucide="alert-triangle"></i>
-            </div>
-            <div class="card-data">
-              <span class="stat-count" id="statOverdue">0</span>
-              <span class="stat-label">Overdue Tasks</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- Navigation Tabs -->
-      <nav class="app-nav">
-        <button class="nav-tab active" data-tab="timeline">
-          <i data-lucide="milestone"></i>
-          <span>Timeline Roadmap</span>
-        </button>
-        <button class="nav-tab" data-tab="kanban">
-          <i data-lucide="kanban"></i>
-          <span>Kanban Board</span>
-        </button>
-        <button class="nav-tab" data-tab="directory">
-          <i data-lucide="list-todo"></i>
-          <span>Task Directory</span>
-        </button>
-      </nav>
-
-      <!-- Views Container -->
-      <div class="views-container">
         
-        <!-- View 1: Timeline Roadmap -->
-        <div class="view-panel active" id="viewTimeline">
-          <div class="view-header">
-            <div>
-              <h2>Timeline Roadmap</h2>
-              <p>Your life goals visualized chronologically</p>
-            </div>
-            <button class="primary-btn btn-new-task">
-              <i data-lucide="plus-circle"></i>
-              <span>New Goal</span>
-            </button>
+        <div class="concentric-progress-card">
+          <div class="concentric-svg-wrapper">
+            <svg class="concentric-progress" viewBox="0 0 140 140">
+              <!-- Year Ring -->
+              <circle class="bg" cx="70" cy="70" r="55" />
+              <circle class="progress year" id="yearProgressCircle" cx="70" cy="70" r="55" />
+              
+              <!-- Month Ring -->
+              <circle class="bg" cx="70" cy="70" r="44" />
+              <circle class="progress month" id="monthProgressCircle" cx="70" cy="70" r="44" />
+              
+              <!-- Week Ring -->
+              <circle class="bg" cx="70" cy="70" r="33" />
+              <circle class="progress week" id="weekProgressCircle" cx="70" cy="70" r="33" />
+              
+              <!-- Day Ring -->
+              <circle class="bg" cx="70" cy="70" r="22" />
+              <circle class="progress day" id="dayProgressCircle" cx="70" cy="70" r="22" />
+            </svg>
           </div>
           
-          <div class="timeline-wrapper">
-            <div class="timeline-line"></div>
-            <div class="timeline-items" id="timelineItemsContainer">
-              <!-- Loading Skeleton -->
-              <div class="loading-placeholder">
-                <div class="skeleton skeleton-timeline-item"></div>
-                <div class="skeleton skeleton-timeline-item"></div>
-                <div class="skeleton skeleton-timeline-item"></div>
-              </div>
+          <div class="concentric-legend">
+            <div class="legend-item year">
+              <span class="legend-dot year"></span>
+              <span class="legend-label">Year</span>
+              <span class="legend-val" id="yearProgressPercent">--%</span>
+            </div>
+            <div class="legend-item month">
+              <span class="legend-dot month"></span>
+              <span class="legend-label">Month</span>
+              <span class="legend-val" id="monthProgressPercent">--%</span>
+            </div>
+            <div class="legend-item week">
+              <span class="legend-dot week"></span>
+              <span class="legend-label">Week</span>
+              <span class="legend-val" id="weekProgressPercent">--%</span>
+            </div>
+            <div class="legend-item day">
+              <span class="legend-dot day"></span>
+              <span class="legend-label">Day</span>
+              <span class="legend-val" id="dayProgressPercent">--%</span>
             </div>
           </div>
         </div>
-
-        <!-- View 2: Kanban Board -->
-        <div class="view-panel" id="viewKanban">
-          <div class="view-header">
-            <div>
-              <h2>Kanban Board</h2>
-              <p>Manage and transition task statuses</p>
-            </div>
-            <button class="primary-btn btn-new-task">
-              <i data-lucide="plus-circle"></i>
-              <span>New Goal</span>
-            </button>
-          </div>
-
-          <div class="kanban-board">
-            <!-- To-Do Column -->
-            <div class="kanban-column" id="colTodo" data-status="To-do">
-              <div class="column-header">
-                <div class="column-title-wrapper">
-                  <span class="status-indicator todo"></span>
-                  <h3>To-Do</h3>
-                  <span class="column-count" id="countColTodo">0</span>
-                </div>
-              </div>
-              <div class="kanban-cards" id="cardsTodo">
-                <!-- Cards will be populated here -->
-              </div>
-            </div>
-
-            <!-- In Progress Column -->
-            <div class="kanban-column" id="colInProgress" data-status="In progress">
-              <div class="column-header">
-                <div class="column-title-wrapper">
-                  <span class="status-indicator in-progress"></span>
-                  <h3>In Progress</h3>
-                  <span class="column-count" id="countColInProgress">0</span>
-                </div>
-              </div>
-              <div class="kanban-cards" id="cardsInProgress">
-                <!-- Cards will be populated here -->
-              </div>
-            </div>
-
-            <!-- Done Column -->
-            <div class="kanban-column" id="colDone" data-status="Done">
-              <div class="column-header">
-                <div class="column-title-wrapper">
-                  <span class="status-indicator done"></span>
-                  <h3>Completed</h3>
-                  <span class="column-count" id="countColDone">0</span>
-                </div>
-              </div>
-              <div class="kanban-cards" id="cardsDone">
-                <!-- Cards will be populated here -->
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- View 3: Task Directory -->
-        <div class="view-panel" id="viewDirectory">
-          <div class="view-header">
-            <div>
-              <h2>Task Directory</h2>
-              <p>Search, filter, and detail view of all tasks</p>
-            </div>
-            <button class="primary-btn btn-new-task">
-              <i data-lucide="plus-circle"></i>
-              <span>New Goal</span>
-            </button>
-          </div>
-
-          <div class="table-controls">
-            <div class="search-input-wrapper">
-              <i data-lucide="search" class="search-icon"></i>
-              <input type="text" id="taskSearchInput" placeholder="Search goals by title...">
-              <button id="clearSearchBtn" class="clear-search-btn" style="display:none;">
-                <i data-lucide="x"></i>
-              </button>
-            </div>
-            <div class="filter-controls">
-              <select id="statusFilterSelect">
-                <option value="all">All Statuses</option>
-                <option value="To-do">To-Do</option>
-                <option value="In progress">In Progress</option>
-                <option value="Done">Completed</option>
-              </select>
-              <select id="dateFilterSelect">
-                <option value="all">Any Date</option>
-                <option value="overdue">Overdue</option>
-                <option value="has-date">Has Due Date</option>
-                <option value="no-date">No Due Date</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="table-container">
-            <table class="directory-table">
-              <thead>
-                <tr>
-                  <th class="col-title" data-sort="title">Goal Title <i data-lucide="chevrons-up-down" class="sort-icon"></i></th>
-                  <th class="col-status" data-sort="status">Status <i data-lucide="chevrons-up-down" class="sort-icon"></i></th>
-                  <th class="col-due" data-sort="due_date">Due Date <i data-lucide="chevrons-up-down" class="sort-icon"></i></th>
-                  <th class="col-action" data-sort="take_action">Take Action <i data-lucide="chevrons-up-down" class="sort-icon"></i></th>
-                  <th class="col-ops">Actions</th>
-                </tr>
-              </thead>
-              <tbody id="directoryTableBody">
-                <!-- Rows will be populated here -->
-              </tbody>
-            </table>
-            
-            <div class="empty-state" id="tableEmptyState" style="display:none;">
-              <i data-lucide="folder-open" class="empty-icon"></i>
-              <h4>No tasks found</h4>
-              <p>Try adjustments to your filters or search terms.</p>
-            </div>
-          </div>
-        </div>
-
       </div>
 
-    </main>
+      <!-- Quick Stats Card List -->
+      <div class="stat-cards-grid">
+        <!-- Mg's Goals -->
+        <div class="mini-stat-card" data-assignee-filter="Mg">
+          <div class="card-icon-wrapper in-progress">
+            <i data-lucide="user"></i>
+          </div>
+          <div class="card-data">
+            <span class="stat-count" id="statMg">0</span>
+            <span class="stat-label">Mg's Goals</span>
+          </div>
+        </div>
+
+        <!-- Chit Lay's Goals -->
+        <div class="mini-stat-card" data-assignee-filter="Chit Lay">
+          <div class="card-icon-wrapper done">
+            <i data-lucide="heart"></i>
+          </div>
+          <div class="card-data">
+            <span class="stat-count" id="statChitLay">0</span>
+            <span class="stat-label">Chit Lay's Goals</span>
+          </div>
+        </div>
+
+        <!-- Shared Goals -->
+        <div class="mini-stat-card" data-assignee-filter="Shared">
+          <div class="card-icon-wrapper todo">
+            <i data-lucide="users"></i>
+          </div>
+          <div class="card-data">
+            <span class="stat-count" id="statShared">0</span>
+            <span class="stat-label">Shared Goals</span>
+          </div>
+        </div>
+
+        <!-- Overdue Tasks -->
+        <div class="mini-stat-card overdue" id="overdueCard">
+          <div class="card-icon-wrapper danger">
+            <i data-lucide="alert-triangle"></i>
+          </div>
+          <div class="card-data">
+            <span class="stat-count" id="statOverdue">0</span>
+            <span class="stat-label">Overdue Tasks</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Navigation Tabs -->
+    <nav class="app-nav">
+      <button class="nav-tab active" data-tab="timeline">
+        <i data-lucide="milestone"></i>
+        <span>Timeline Roadmap</span>
+      </button>
+      <button class="nav-tab" data-tab="kanban">
+        <i data-lucide="kanban"></i>
+        <span>Kanban Board</span>
+      </button>
+      <button class="nav-tab" data-tab="directory">
+        <i data-lucide="list-todo"></i>
+        <span>Task Directory</span>
+      </button>
+    </nav>
+
+    <!-- Main Workspace Split Layout -->
+    <div class="workspace-layout">
+      
+      <!-- Primary Panel: Tab Views -->
+      <div class="workspace-main-panel">
+        <div class="views-container">
+          
+          <!-- View 1: Timeline Roadmap -->
+          <div class="view-panel active" id="viewTimeline">
+            <div class="view-header">
+              <div>
+                <h2>Timeline Roadmap</h2>
+                <p>Your life goals visualized chronologically</p>
+              </div>
+              <button class="primary-btn btn-new-task">
+                <i data-lucide="plus-circle"></i>
+                <span>New Goal</span>
+              </button>
+            </div>
+            
+            <div class="timeline-wrapper">
+              <div class="timeline-line"></div>
+              <div class="timeline-items" id="timelineItemsContainer">
+                <!-- Skeleton loader -->
+                <div class="loading-placeholder">
+                  <div class="skeleton skeleton-timeline-item"></div>
+                  <div class="skeleton skeleton-timeline-item"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- View 2: Kanban Board -->
+          <div class="view-panel" id="viewKanban">
+            <div class="view-header">
+              <div>
+                <h2>Kanban Board</h2>
+                <p>Manage and transition task statuses</p>
+              </div>
+              <button class="primary-btn btn-new-task">
+                <i data-lucide="plus-circle"></i>
+                <span>New Goal</span>
+              </button>
+            </div>
+
+            <div class="kanban-board">
+              <!-- To-Do Column -->
+              <div class="kanban-column" id="colTodo" data-status="To-do">
+                <div class="column-header">
+                  <div class="column-title-wrapper">
+                    <span class="status-indicator todo"></span>
+                    <h3>To-Do</h3>
+                    <span class="column-count" id="countColTodo">0</span>
+                  </div>
+                </div>
+                <div class="kanban-cards" id="cardsTodo"></div>
+              </div>
+
+              <!-- In Progress Column -->
+              <div class="kanban-column" id="colInProgress" data-status="In progress">
+                <div class="column-header">
+                  <div class="column-title-wrapper">
+                    <span class="status-indicator in-progress"></span>
+                    <h3>In Progress</h3>
+                    <span class="column-count" id="countColInProgress">0</span>
+                  </div>
+                </div>
+                <div class="kanban-cards" id="cardsInProgress"></div>
+              </div>
+
+              <!-- Done Column -->
+              <div class="kanban-column" id="colDone" data-status="Done">
+                <div class="column-header">
+                  <div class="column-title-wrapper">
+                    <span class="status-indicator done"></span>
+                    <h3>Completed</h3>
+                    <span class="column-count" id="countColDone">0</span>
+                  </div>
+                </div>
+                <div class="kanban-cards" id="cardsDone"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- View 3: Task Directory -->
+          <div class="view-panel" id="viewDirectory">
+            <div class="view-header">
+              <div>
+                <h2>Task Directory</h2>
+                <p>Search, filter, and detail view of all tasks</p>
+              </div>
+              <button class="primary-btn btn-new-task">
+                <i data-lucide="plus-circle"></i>
+                <span>New Goal</span>
+              </button>
+            </div>
+
+            <div class="table-controls">
+              <div class="search-input-wrapper">
+                <i data-lucide="search" class="search-icon"></i>
+                <input type="text" id="taskSearchInput" placeholder="Search goals by title...">
+                <button id="clearSearchBtn" class="clear-search-btn" style="display:none;">
+                  <i data-lucide="x"></i>
+                </button>
+              </div>
+              <div class="filter-controls">
+                <select id="statusFilterSelect">
+                  <option value="all">All Statuses</option>
+                  <option value="To-do">To-Do</option>
+                  <option value="In progress">In Progress</option>
+                  <option value="Done">Completed</option>
+                </select>
+                <select id="dateFilterSelect">
+                  <option value="all">Any Date</option>
+                  <option value="overdue">Overdue</option>
+                  <option value="has-date">Has Due Date</option>
+                  <option value="no-date">No Due Date</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="table-container">
+              <table class="directory-table">
+                <thead>
+                  <tr>
+                    <th class="col-title" data-sort="title">Goal Title <i data-lucide="chevrons-up-down" class="sort-icon"></i></th>
+                    <th class="col-status" data-sort="status">Status <i data-lucide="chevrons-up-down" class="sort-icon"></i></th>
+                    <th class="col-due" data-sort="due_date">Due Date <i data-lucide="chevrons-up-down" class="sort-icon"></i></th>
+                    <th class="col-action" data-sort="take_action">Take Action <i data-lucide="chevrons-up-down" class="sort-icon"></i></th>
+                    <th class="col-ops">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="directoryTableBody"></tbody>
+              </table>
+              
+              <div class="empty-state" id="tableEmptyState" style="display:none;">
+                <i data-lucide="folder-open" class="empty-icon"></i>
+                <h4>No tasks found</h4>
+                <p>Try adjustments to your filters or search terms.</p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Secondary Panel: Focus Sidebar -->
+      <aside class="workspace-sidebar">
+        
+        <!-- Focus Tasks / Upcoming deadlines -->
+        <div class="sidebar-widget-card upcoming-feed-card">
+          <div class="widget-header">
+            <h4><i data-lucide="alarm-clock" class="widget-icon"></i> Upcoming Focus</h4>
+            <span class="widget-badge" id="upcomingCount">0</span>
+          </div>
+          <div class="upcoming-list" id="upcomingFeedList">
+            <!-- Items loaded dynamically -->
+            <p class="text-muted text-center" style="font-size:0.8125rem; padding: 20px 0;">No upcoming deadlines.</p>
+          </div>
+        </div>
+
+        <!-- Motivation Card -->
+        <div class="sidebar-widget-card motivation-card">
+          <div class="motivation-icon-circle">
+            <i data-lucide="trophy"></i>
+          </div>
+          <div class="motivation-text">
+            <h5 id="motivationTitle">Progress Goal</h5>
+            <p id="motivationQuote" class="card-detail-text">"Small, consistent steps build outstanding achievements."</p>
+          </div>
+        </div>
+
+      </aside>
+
+    </div>
 
     <!-- Floating Action Button -->
     <button class="fab-new-task btn-new-task" id="fabAddTask" aria-label="Add new goal">
@@ -305,13 +372,23 @@
           <div class="error-feedback" id="titleError">Goal title is required</div>
         </div>
 
-        <div class="form-group">
-          <label for="taskStatusInput">Status</label>
-          <select id="taskStatusInput">
-            <option value="To-do">To-Do</option>
-            <option value="In progress">In Progress</option>
-            <option value="Done">Completed</option>
-          </select>
+        <div class="form-row">
+          <div class="form-group half">
+            <label for="taskStatusInput">Status</label>
+            <select id="taskStatusInput">
+              <option value="To-do">To-Do</option>
+              <option value="In progress">In Progress</option>
+              <option value="Done">Completed</option>
+            </select>
+          </div>
+          <div class="form-group half">
+            <label for="taskAssigneeInput">Assignee</label>
+            <select id="taskAssigneeInput">
+              <option value="Shared">Shared / Both</option>
+              <option value="Mg">Mg (Han)</option>
+              <option value="Chit Lay">Chit Lay</option>
+            </select>
+          </div>
         </div>
 
         <div class="form-row">
