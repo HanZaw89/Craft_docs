@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Han's Life Progress (Craft Embed)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-[#0A0A0C] text-[#E4E4E7] antialiased p-4">
+
+    <!-- COMPACT DASHBOARD -->
+    <div class="max-w-md mx-auto space-y-4">
+        <div>
+            <h1 class="text-lg font-bold text-white">Han's Life Progress</h1>
+            <p class="text-[11px] text-zinc-400">Sequential Milestones & Dependencies</p>
+        </div>
+
+        <!-- COMPLETION METER -->
+        <div class="bg-[#121215] border border-zinc-800 rounded-xl p-3 flex items-center justify-between gap-4">
+            <div>
+                <span id="progressPercent" class="text-2xl font-bold text-white">0%</span>
+                <p id="progressFraction" class="text-[10px] text-zinc-500">0/0 done</p>
+            </div>
+            <div class="flex-1 max-w-[120px]">
+                <div class="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden">
+                    <div id="progressBar" class="bg-indigo-500 h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- INLINE FORM -->
+        <form id="goalForm" class="flex gap-2">
+            <input type="text" id="taskName" required placeholder="New Objective..." class="flex-1 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500">
+            <select id="taskDependency" class="hidden"><option value="None">None</option></select>
+            <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-lg px-3 py-1.5 text-xs transition-colors">+</button>
+        </form>
+
+        <!-- TIMELINE LIST -->
+        <div id="timelineContainer" class="space-y-2">
+            <!-- Items render here -->
+        </div>
+    </div>
+
+    <script>
+        let state = [];
+        // Extract your Craft Imagine Token directly from the URL query params automatically
+        const urlParams = new URLSearchParams(window.location.search);
+        const baseUrl = "https://connect.craft.do/links/6RGvTiyQTZ7/api/v1";
+
+        async function syncWithCraft() {
+            try {
+                const response = await fetch(`${baseUrl}/blocks`, { method: "GET", headers: { "Accept": "application/json" } });
+                const result = await response.json();
+                const dataBlock = result.blocks?.find(b => b.type === "code" && b.content.includes("requires"));
+                if (dataBlock) state = JSON.parse(dataBlock.content);
+                render();
+            } catch (err) { console.error(err); }
+        }
+
+        async function saveChangesToCraft() {
+            let markdownView = "### 🚀 Han's Life Progress Roadmap\n\n";
+            state.forEach(t => { markdownView += `${t.done ? '🟢' : '⚪'} **${t.name}**\n`; });
+
+            await fetch(`${baseUrl}/blocks`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                body: JSON.stringify({
+                    blocks: [
+                        { type: "code", content: JSON.stringify(state) },
+                        { type: "text", content: markdownView }
+                    ]
+                })
+            });
+        }
+
+        function render() {
+            const container = document.getElementById("timelineContainer");
+            container.innerHTML = "";
+            let completed = 0;
+
+            state.forEach(task => {
+                if(task.done) completed++;
+                const card = document.createElement("div");
+                card.className = `p-3 rounded-xl border flex items-center justify-between ${task.done ? 'bg-zinc-900/30 border-zinc-800/40 opacity-50' : 'bg-[#121215] border-zinc-800'}`;
+                card.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" ${task.done ? 'checked' : ''} onchange="toggleTask('${task.id}')" class="w-4 h-4 text-indigo-600 bg-zinc-900 border-zinc-700 rounded">
+                        <span class="text-xs ${task.done ? 'line-through text-zinc-500' : 'text-zinc-200'}">${task.name}</span>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            const pct = state.length > 0 ? Math.round((completed / state.length) * 100) : 0;
+            document.getElementById("progressPercent").innerText = pct + "%";
+            document.getElementById("progressFraction").innerText = `${completed}/${state.length} complete`;
+            document.getElementById("progressBar").style.width = pct + "%";
+        }
+
+        async function toggleTask(id) {
+            const t = state.find(x => x.id === id);
+            if(t) { t.done = !t.done; render(); await saveChangesToCraft(); }
+        }
+
+        document.getElementById("goalForm").addEventListener("submit", async function(e) {
+            e.preventDefault();
+            const name = document.getElementById("taskName").value.trim();
+            state.push({ id: Date.now().toString(), name, requires: "None", done: false });
+            render();
+            this.reset();
+            await saveChangesToCraft();
+        });
+
+        window.onload = syncWithCraft;
+    </script>
+</body>
+</html>
