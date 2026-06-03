@@ -6,6 +6,24 @@
 const API_BASE_URL = 'https://connect.craft.do/links/G3m5KGCYJN8/api/v1';
 const COLLECTION_ID = '37B620E7-5713-424E-80D3-77F60F2023CD';
 
+// --- Safe Storage Wrappers ---
+function safeGetItem(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch (e) {
+    console.warn('localStorage is blocked or unavailable:', e);
+    return null;
+  }
+}
+
+function safeSetItem(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch (e) {
+    console.warn('localStorage is blocked or unavailable:', e);
+  }
+}
+
 // --- State Management ---
 const state = {
   tasks: [],
@@ -18,6 +36,7 @@ const state = {
   sortAsc: true,
   timelineTimeframe: 'year', // default timeframe filter
   showUndated: true, // default to show undated goals
+  syncFailed: false, // track connection/sync failures
 };
 
 // --- DOM Elements Cache ---
@@ -85,9 +104,11 @@ function initDOMElements() {
     taskDueDateInput: document.getElementById('taskDueDateInput'),
     taskActionDateInput: document.getElementById('taskActionDateInput'),
     titleError: document.getElementById('titleError'),
+    dateError: document.getElementById('dateError'),
     deleteTaskBtn: document.getElementById('deleteTaskBtn'),
     cancelModalBtn: document.getElementById('cancelModalBtn'),
     closeModalBtn: document.getElementById('closeModalBtn'),
+    saveTaskBtn: document.getElementById('saveTaskBtn'),
     
     // Sidebar
     upcomingCount: document.getElementById('upcomingCount'),
@@ -126,7 +147,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // --- Theme Management ---
 function initTheme() {
-  const savedTheme = localStorage.getItem('theme') || 'dark';
+  const savedTheme = safeGetItem('theme') || 'dark';
   document.documentElement.setAttribute('data-theme', savedTheme);
 }
 
@@ -134,7 +155,7 @@ function toggleTheme() {
   const currentTheme = document.documentElement.getAttribute('data-theme');
   const newTheme = currentTheme === 'light' ? 'dark' : 'light';
   document.documentElement.setAttribute('data-theme', newTheme);
-  localStorage.setItem('theme', newTheme);
+  safeSetItem('theme', newTheme);
   showToast(`Switched to ${newTheme} mode`, 'info');
 }
 
@@ -216,6 +237,7 @@ function formatDateFriendly(dateStr) {
   if (parts.length !== 3) return dateStr;
   
   const date = new Date(parts[0], parts[1] - 1, parts[2]);
+  if (isNaN(date.getTime())) return dateStr;
   return date.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
@@ -225,6 +247,8 @@ function formatDateFriendly(dateStr) {
 
 function isDateOverdue(dueDateStr, status) {
   if (!dueDateStr || status === 'Done') return false;
+  const regex = /^\d{4}-\d{2}-\d{2}$/;
+  if (!regex.test(dueDateStr)) return false;
   const today = getTodayDateString();
   return dueDateStr < today;
 }
@@ -255,6 +279,15 @@ async function fetchTasks() {
   setLoadingState(true);
   updateSyncStatus('Syncing...', 'yellow');
   
+  if (!navigator.onLine) {
+    state.syncFailed = true;
+    updateSyncStatus('Offline Mode', 'red');
+    showToast('You are currently offline. Cannot sync.', 'error');
+    setLoadingState(false);
+    renderApp();
+    return;
+  }
+  
   try {
     const response = await fetch(`${API_BASE_URL}/collections/${COLLECTION_ID}/items`);
     if (!response.ok) {
@@ -262,9 +295,11 @@ async function fetchTasks() {
     }
     
     const data = await response.json();
-    const fetchedTasks = data.items.map(item => {
+    const fetchedTasks = (data.items || []).map(item => {
       const cleanTitle = cleanTaskTitle(item.title);
-      const role = item.properties.role || [];
+      const props = item.properties || {};
+      const role = props.role || [];
+      const sort_order = props.sort_order || '';
       let assignee = 'Shared';
       if (role.length === 1) {
         if (role[0] === 'Mg') assignee = 'Mg';
@@ -273,42 +308,61 @@ async function fetchTasks() {
         assignee = 'Shared';
       }
       return {
-        id: item.id,
+        id: item.id || '',
         title: cleanTitle,
         assignee: assignee,
         rawTitle: item.title || 'Untitled Goal',
-        status: item.properties.status || 'To-do',
-        due_date: item.properties.due_date || '',
-        take_action: item.properties.take_action || '',
+        status: props.status || 'To-do',
+        due_date: props.due_date || '',
+        take_action: props.take_action || '',
+        sort_order: sort_order
       };
     });
     
-    // Sort tasks according to saved manual timeline order if exists
-    const savedOrder = localStorage.getItem('timeline_order');
+    // Sort tasks according to database sort_order, fallback to localStorage order, fallback to top
+    const savedOrder = safeGetItem('timeline_order');
+    let orderMap = null;
     if (savedOrder) {
       try {
         const orderArray = JSON.parse(savedOrder);
-        const orderMap = new Map(orderArray.map((id, index) => [id, index]));
-        fetchedTasks.sort((a, b) => {
-          const hasA = orderMap.has(a.id);
-          const hasB = orderMap.has(b.id);
-          if (hasA && hasB) return orderMap.get(a.id) - orderMap.get(b.id);
-          if (!hasA && hasB) return -1; // New items go to top
-          if (hasA && !hasB) return 1;
-          return 0;
-        });
+        orderMap = new Map(orderArray.map((id, index) => [id, index]));
       } catch (e) {
         console.error('Failed to parse manual timeline order:', e);
       }
     }
     
+    fetchedTasks.sort((a, b) => {
+      const orderA = a.sort_order;
+      const orderB = b.sort_order;
+      const hasDbA = orderA !== '' && !isNaN(parseFloat(orderA));
+      const hasDbB = orderB !== '' && !isNaN(parseFloat(orderB));
+      
+      if (hasDbA && hasDbB) {
+        return parseFloat(orderA) - parseFloat(orderB);
+      }
+      if (hasDbA && !hasDbB) return 1; // Unordered goes to top
+      if (!hasDbA && hasDbB) return -1; // Unordered goes to top
+      
+      // Fallback to localStorage order if database sort_order is not set
+      if (orderMap) {
+        const hasLocA = orderMap.has(a.id);
+        const hasLocB = orderMap.has(b.id);
+        if (hasLocA && hasLocB) return orderMap.get(a.id) - orderMap.get(b.id);
+        if (!hasLocA && hasLocB) return -1;
+        if (hasLocA && !hasLocB) return 1;
+      }
+      return 0;
+    });
+    
     state.tasks = fetchedTasks;
+    state.syncFailed = false;
     renderApp();
     updateSyncStatus('Synced with Craft', 'green');
   } catch (error) {
     console.error(error);
+    state.syncFailed = true;
     showToast('Failed to load tasks from Craft docs', 'error');
-    updateSyncStatus('Sync Error', 'yellow');
+    updateSyncStatus('Sync Error', 'red');
     renderApp(); // Clear loading block displays
   } finally {
     setLoadingState(false);
@@ -329,9 +383,11 @@ async function apiCreateTask(title, properties) {
     showToast('Goal created successfully', 'success');
     if (properties.status === 'Done') triggerConfetti();
     fetchTasks();
+    return true;
   } catch (error) {
     console.error(error);
     showToast('Error creating goal in Craft docs', 'error');
+    return false;
   }
 }
 
@@ -350,9 +406,31 @@ async function apiUpdateTask(id, title, properties, suppressReload = false) {
       showToast('Goal updated successfully', 'success');
       fetchTasks();
     }
+    return true;
   } catch (error) {
     console.error(error);
     showToast('Error updating goal in Craft docs', 'error');
+    return false;
+  }
+}
+
+async function apiUpdateMultipleTasks(updates) {
+  if (!updates || updates.length === 0) return true;
+  try {
+    const response = await fetch(`${API_BASE_URL}/collections/${COLLECTION_ID}/items`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        itemsToUpdate: updates
+      })
+    });
+    
+    if (!response.ok) throw new Error('API batch update failed');
+    return true;
+  } catch (error) {
+    console.error(error);
+    showToast('Error syncing task ordering to Craft docs', 'error');
+    return false;
   }
 }
 
@@ -369,9 +447,11 @@ async function apiDeleteTask(id) {
     if (!response.ok) throw new Error('API deletion failed');
     showToast('Goal deleted successfully', 'success');
     fetchTasks();
+    return true;
   } catch (error) {
     console.error(error);
     showToast('Error deleting goal in Craft docs', 'error');
+    return false;
   }
 }
 
@@ -498,6 +578,9 @@ function isTaskInTimeframe(task, timeframe) {
   if (parts.length !== 3) return false;
   
   const taskDate = new Date(parts[0], parts[1] - 1, parts[2]);
+  if (isNaN(taskDate.getTime())) {
+    return state.showUndated;
+  }
   const now = new Date();
   
   if (timeframe === 'year') {
@@ -516,6 +599,21 @@ function isTaskInTimeframe(task, timeframe) {
 function renderTimelineView() {
   const container = elements.timelineItemsContainer;
   if (!container) return;
+  
+  if (state.syncFailed && state.tasks.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <i data-lucide="cloud-off" class="empty-icon" style="color: var(--danger-color);"></i>
+        <h4>Sync Connection Failed</h4>
+        <p>${navigator.onLine ? 'Could not connect to the Craft Docs server.' : 'You are currently offline. Please check your internet connection.'}</p>
+        <button class="primary-btn" onclick="fetchTasks()" style="margin-top: 15px;">
+          <i data-lucide="refresh-cw"></i>
+          <span>Retry Sync</span>
+        </button>
+      </div>
+    `;
+    return;
+  }
   
   const timeframe = state.timelineTimeframe || 'year';
   const filteredTasks = state.tasks.filter(task => isTaskInTimeframe(task, timeframe));
@@ -627,6 +725,19 @@ function renderKanbanView() {
     'Done': { container: elements.cardsDone, countEl: elements.countColDone, html: '' }
   };
   
+  if (state.syncFailed && state.tasks.length === 0) {
+    Object.keys(cols).forEach(status => {
+      cols[status].countEl.textContent = '0';
+      cols[status].container.innerHTML = `
+        <div class="empty-state" style="padding: 30px 10px;">
+          <i data-lucide="cloud-off" style="width: 20px; height: 20px; color: var(--danger-color); margin-bottom: 8px;"></i>
+          <p class="text-muted" style="font-size: 0.8125rem;">Sync Failed</p>
+        </div>
+      `;
+    });
+    return;
+  }
+  
   let counts = { 'To-do': 0, 'In progress': 0, 'Done': 0 };
   
   state.tasks.forEach(task => {
@@ -714,7 +825,9 @@ function renderKanbanView() {
 // --- Quick Status Shifters ---
 async function shiftTaskStatus(id, newStatus) {
   const task = state.tasks.find(t => t.id === id);
-  if (!task) return;
+  if (!task) return false;
+  
+  const oldStatus = task.status;
   
   // Optimistic update locally
   task.status = newStatus;
@@ -729,11 +842,24 @@ async function shiftTaskStatus(id, newStatus) {
     status: newStatus,
     due_date: task.due_date || '',
     take_action: task.take_action || '',
-    role: task.assignee === 'Shared' ? ['Mg', 'Chit Lay'] : [task.assignee]
+    role: task.assignee === 'Shared' ? ['Mg', 'Chit Lay'] : [task.assignee],
+    sort_order: task.sort_order || ''
   };
   
   updateSyncStatus('Syncing Status...', 'yellow');
-  await apiUpdateTask(id, task.title, properties, true); // suppressReload = true for fast UI feedback
+  const success = await apiUpdateTask(id, task.title, properties, true); // suppressReload = true for fast UI feedback
+  
+  if (!success) {
+    // Revert optimistic update
+    task.status = oldStatus;
+    renderApp();
+    showToast(`Failed to update status. Rolled back changes.`, 'error');
+    updateSyncStatus('Sync Error', 'yellow');
+    return false;
+  } else {
+    updateSyncStatus('Synced with Craft', 'green');
+    return true;
+  }
 }
 
 async function toggleTaskCompleted(id) {
@@ -741,14 +867,31 @@ async function toggleTaskCompleted(id) {
   if (!task) return;
   
   const newStatus = task.status === 'Done' ? 'To-do' : 'Done';
-  await shiftTaskStatus(id, newStatus);
-  fetchTasks();
+  const success = await shiftTaskStatus(id, newStatus);
+  if (success) {
+    fetchTasks();
+  }
 }
 
 // --- View 3: Task Directory Rendering ---
 function renderDirectoryView() {
   const tableBody = elements.directoryTableBody;
   if (!tableBody) return;
+  
+  if (state.syncFailed && state.tasks.length === 0) {
+    tableBody.innerHTML = '';
+    elements.tableEmptyState.innerHTML = `
+      <i data-lucide="cloud-off" class="empty-icon" style="color: var(--danger-color);"></i>
+      <h4>Sync Connection Failed</h4>
+      <p>${navigator.onLine ? 'Could not connect to the Craft Docs server.' : 'You are currently offline. Please check your internet connection.'}</p>
+      <button class="primary-btn" onclick="fetchTasks()" style="margin-top: 15px;">
+        <i data-lucide="refresh-cw"></i>
+        <span>Retry Sync</span>
+      </button>
+    `;
+    elements.tableEmptyState.style.display = 'flex';
+    return;
+  }
   
   let filteredTasks = state.tasks.filter(task => {
     const matchesSearch = task.title.toLowerCase().includes(state.searchQuery.toLowerCase());
@@ -926,6 +1069,24 @@ function renderSidebarWidgets() {
   if (elements.motivationQuote) elements.motivationQuote.textContent = quote;
 }
 
+function setSavingState(isSaving) {
+  const formInputs = elements.taskForm.querySelectorAll('input, select, button');
+  formInputs.forEach(input => {
+    input.disabled = isSaving;
+  });
+  
+  if (elements.saveTaskBtn) {
+    if (isSaving) {
+      elements.saveTaskBtn.innerHTML = `<span class="spinner"></span>Saving...`;
+      elements.saveTaskBtn.disabled = true;
+    } else {
+      elements.saveTaskBtn.innerHTML = `<i data-lucide="save"></i> <span>Save Goal</span>`;
+      elements.saveTaskBtn.disabled = false;
+      lucide.createIcons();
+    }
+  }
+}
+
 // --- Modal Management ---
 function openCreateModal() {
   elements.modalTitle.textContent = 'Add New Goal';
@@ -933,6 +1094,8 @@ function openCreateModal() {
   elements.editTaskId.value = '';
   elements.deleteTaskBtn.style.display = 'none';
   elements.titleError.classList.remove('active');
+  if (elements.dateError) elements.dateError.classList.remove('active');
+  setSavingState(false);
   elements.taskModal.classList.add('active');
   elements.taskTitleInput.focus();
 }
@@ -951,6 +1114,8 @@ function openEditModal(id) {
   
   elements.deleteTaskBtn.style.display = 'inline-flex';
   elements.titleError.classList.remove('active');
+  if (elements.dateError) elements.dateError.classList.remove('active');
+  setSavingState(false);
   elements.taskModal.classList.add('active');
   elements.taskTitleInput.focus();
 }
@@ -970,26 +1135,48 @@ async function handleFormSubmit(e) {
   const due_date = elements.taskDueDateInput.value;
   const take_action = elements.taskActionDateInput.value;
   
+  let hasError = false;
+  
   if (!title) {
     elements.titleError.classList.add('active');
     elements.taskTitleInput.focus();
-    return;
+    hasError = true;
+  } else {
+    elements.titleError.classList.remove('active');
   }
   
-  closeModal();
-  setLoadingState(true);
+  // Logical Date validation
+  if (due_date && take_action && take_action > due_date) {
+    if (elements.dateError) elements.dateError.classList.add('active');
+    elements.taskActionDateInput.focus();
+    hasError = true;
+  } else {
+    if (elements.dateError) elements.dateError.classList.remove('active');
+  }
   
+  if (hasError) return;
+  
+  setSavingState(true);
+  
+  const task = id ? state.tasks.find(t => t.id === id) : null;
   const properties = { 
     status, 
     due_date, 
     take_action,
-    role: assignee === 'Shared' ? ['Mg', 'Chit Lay'] : [assignee]
+    role: assignee === 'Shared' ? ['Mg', 'Chit Lay'] : [assignee],
+    sort_order: task ? (task.sort_order || '') : ''
   };
   
+  let success = false;
   if (id) {
-    await apiUpdateTask(id, title, properties);
+    success = await apiUpdateTask(id, title, properties);
   } else {
-    await apiCreateTask(title, properties);
+    success = await apiCreateTask(title, properties);
+  }
+  
+  setSavingState(false);
+  if (success) {
+    closeModal();
   }
 }
 
@@ -1121,8 +1308,27 @@ function handleTouchEnd(e) {
   isLongPressActive = false;
 }
 
+function updateConnectionStatus() {
+  if (navigator.onLine) {
+    if (state.syncFailed) {
+      updateSyncStatus('Sync Error', 'red');
+    } else {
+      updateSyncStatus('Connected to Craft', 'green');
+    }
+    showToast('Internet connection restored.', 'success');
+    fetchTasks();
+  } else {
+    updateSyncStatus('Offline Mode', 'red');
+    showToast('You are currently offline. Changes will fail to sync.', 'error');
+    renderApp();
+  }
+}
+
 // --- Event Listeners Setup ---
 function setupEventListeners() {
+  window.addEventListener('online', updateConnectionStatus);
+  window.addEventListener('offline', updateConnectionStatus);
+  
   elements.themeToggleBtn.addEventListener('click', toggleTheme);
   
   elements.syncBadge.addEventListener('click', () => {
@@ -1336,7 +1542,7 @@ function setupEventListeners() {
   }
 }
 
-function saveManualOrder() {
+async function saveManualOrder() {
   const timelineItemsContainer = document.getElementById('timelineItemsContainer');
   if (!timelineItemsContainer) return;
   const itemEls = timelineItemsContainer.querySelectorAll('.timeline-item');
@@ -1358,10 +1564,16 @@ function saveManualOrder() {
     }
   });
   
-  localStorage.setItem('timeline_order', JSON.stringify(newOrderIds));
+  // Keep local storage as local fallback
+  safeSetItem('timeline_order', JSON.stringify(newOrderIds));
   
-  // Re-sort state.tasks to match newOrderIds
+  // Save previous tasks array to support rollback if the API fails
+  const previousTasks = [...state.tasks];
+  
+  // Re-sort state.tasks to match newOrderIds and assign new sort_order strings
+  const updates = [];
   const orderMap = new Map(newOrderIds.map((id, index) => [id, index]));
+  
   state.tasks.sort((a, b) => {
     const hasA = orderMap.has(a.id);
     const hasB = orderMap.has(b.id);
@@ -1373,7 +1585,40 @@ function saveManualOrder() {
     return 0;
   });
   
+  state.tasks.forEach((task, index) => {
+    const newOrderVal = String(index + 1);
+    if (task.sort_order !== newOrderVal) {
+      task.sort_order = newOrderVal;
+      updates.push({
+        id: task.id,
+        title: task.title,
+        properties: {
+          status: task.status,
+          due_date: task.due_date || '',
+          take_action: task.take_action || '',
+          role: task.assignee === 'Shared' ? ['Mg', 'Chit Lay'] : [task.assignee],
+          sort_order: newOrderVal
+        }
+      });
+    }
+  });
+  
+  // Optimistically render the reordered list
   renderApp();
+  
+  if (updates.length > 0) {
+    updateSyncStatus('Syncing Order...', 'yellow');
+    const success = await apiUpdateMultipleTasks(updates);
+    if (!success) {
+      // Revert optimistic sorting state
+      state.tasks = previousTasks;
+      renderApp();
+      showToast('Failed to sync reordering. Rolled back.', 'error');
+      updateSyncStatus('Sync Error', 'red');
+    } else {
+      updateSyncStatus('Synced with Craft', 'green');
+    }
+  }
 }
 
 // Custom handler for filtering directory list when stats card is clicked

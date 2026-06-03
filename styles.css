@@ -267,6 +267,11 @@ h1, h2, h3, h4, h5 {
   box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7);
   animation: pulseYellow 1.5s infinite;
 }
+.pulse-dot.red {
+  background-color: var(--danger-color);
+  box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  animation: pulseRed 1.5s infinite;
+}
 
 @keyframes pulseGreen {
   0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
@@ -277,6 +282,11 @@ h1, h2, h3, h4, h5 {
   0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
   70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); }
   100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+}
+@keyframes pulseRed {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
 }
 
 .theme-toggle-btn {
@@ -2183,6 +2193,21 @@ html[data-theme="light"] .concentric-progress circle.bg {
     padding: 8px 12px;
     font-size: 0.875rem;
   }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  border-top-color: transparent;
+  animation: spin 0.8s linear infinite;
+  vertical-align: middle;
+  margin-right: 6px;
 }
 
 
