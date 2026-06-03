@@ -108,6 +108,32 @@
         </div>
       </div>
 
+      <!-- This Year's Goals Progress Card -->
+      <div class="stat-card year-progress-card">
+        <div class="matrix-header">
+          <h3><i data-lucide="target" class="title-icon"></i> <span id="yearProgressTitle">Goals Progress Matrix</span></h3>
+          <p class="card-detail-text" id="yearProgressDesc">Completion rate for this year's tasks</p>
+        </div>
+        
+        <div class="year-progress-stats">
+          <div class="progress-stat-item">
+            <span class="stat-val-large" id="yearTasksCompleted">0</span>
+            <span class="stat-label-sub">Completed</span>
+          </div>
+          <div class="progress-stat-item">
+            <span class="stat-val-large" id="yearTasksRemaining">0</span>
+            <span class="stat-label-sub">Remaining</span>
+          </div>
+        </div>
+        
+        <div class="progress-bar-wrapper">
+          <div class="progress-bar-container">
+            <div class="progress-bar-fill" id="yearTasksProgressBar" style="width: 0%;"></div>
+          </div>
+          <span class="progress-bar-percent" id="yearTasksProgressPercent">0%</span>
+        </div>
+      </div>
+
       <!-- Quick Stats Card List -->
       <div class="stat-cards-grid">
         <!-- Mg's Goals -->
@@ -186,10 +212,25 @@
                 <h2>Timeline Roadmap</h2>
                 <p>Your life goals visualized chronologically</p>
               </div>
-              <button class="primary-btn btn-new-task">
-                <i data-lucide="plus-circle"></i>
-                <span>New Goal</span>
-              </button>
+              <div class="view-header-actions">
+                <div class="timeline-filter-wrapper">
+                  <i data-lucide="filter" class="filter-icon"></i>
+                  <select id="timelineTimeframeFilter" class="timeline-select">
+                    <option value="year" selected>Current Year</option>
+                    <option value="6months">Next 6 Months</option>
+                    <option value="all">All Goals</option>
+                  </select>
+                </div>
+                <label class="undated-toggle">
+                  <input type="checkbox" id="timelineUndatedToggle" checked>
+                  <span class="toggle-slider"></span>
+                  <span class="toggle-text">Show Undated</span>
+                </label>
+                <button class="primary-btn btn-new-task">
+                  <i data-lucide="plus-circle"></i>
+                  <span>New Goal</span>
+                </button>
+              </div>
             </div>
             
             <div class="timeline-wrapper">

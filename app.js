@@ -16,6 +16,8 @@ const state = {
   dateFilter: 'all',
   sortField: 'due_date',
   sortAsc: true,
+  timelineTimeframe: 'year', // default timeframe filter
+  showUndated: true, // default to show undated goals
 };
 
 // --- DOM Elements Cache ---
@@ -95,6 +97,18 @@ function initDOMElements() {
     
     // Toast Container
     toastContainer: document.getElementById('toastContainer'),
+    
+    // Timeline Timeframe Filter
+    timelineTimeframeFilter: document.getElementById('timelineTimeframeFilter'),
+    
+    // Timeline Undated Toggle
+    timelineUndatedToggle: document.getElementById('timelineUndatedToggle'),
+    
+    // Year goal progress stats elements
+    yearTasksCompleted: document.getElementById('yearTasksCompleted'),
+    yearTasksRemaining: document.getElementById('yearTasksRemaining'),
+    yearTasksProgressBar: document.getElementById('yearTasksProgressBar'),
+    yearTasksProgressPercent: document.getElementById('yearTasksProgressPercent'),
   };
 }
 
@@ -406,13 +420,55 @@ function calculateStats() {
   let sharedCount = 0;
   let overdue = 0;
   
+  const timeframe = state.timelineTimeframe || 'year';
+  let totalCount = 0;
+  let completedCount = 0;
+  
   state.tasks.forEach(task => {
-    if (task.assignee === 'Mg') mgCount++;
-    else if (task.assignee === 'Chit Lay') clCount++;
-    else sharedCount++;
-    
-    if (isDateOverdue(task.due_date, task.status)) overdue++;
+    // Check if task matches the active timeframe and undated toggle
+    if (isTaskInTimeframe(task, timeframe)) {
+      if (task.assignee === 'Mg') mgCount++;
+      else if (task.assignee === 'Chit Lay') clCount++;
+      else sharedCount++;
+      
+      if (isDateOverdue(task.due_date, task.status)) overdue++;
+      
+      totalCount++;
+      if (task.status === 'Done') {
+        completedCount++;
+      }
+    }
   });
+  
+  const remainingCount = totalCount - completedCount;
+  const progressPercent = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
+  
+  // Update year goal stats in UI
+  if (elements.yearTasksCompleted) elements.yearTasksCompleted.textContent = completedCount;
+  if (elements.yearTasksRemaining) elements.yearTasksRemaining.textContent = remainingCount;
+  if (elements.yearTasksProgressPercent) elements.yearTasksProgressPercent.textContent = `${Math.round(progressPercent)}%`;
+  if (elements.yearTasksProgressBar) {
+    setTimeout(() => {
+      elements.yearTasksProgressBar.style.width = `${progressPercent}%`;
+    }, 50);
+  }
+  
+  // Update title/description based on timeframe
+  const titleEl = document.getElementById('yearProgressTitle');
+  const descEl = document.getElementById('yearProgressDesc');
+  if (titleEl && descEl) {
+    if (timeframe === 'year') {
+      const currentYear = new Date().getFullYear();
+      titleEl.textContent = `${currentYear} Goals Tracker`;
+      descEl.textContent = `Completion rate for ${state.showUndated ? 'all' : 'scheduled'} goals this year`;
+    } else if (timeframe === '6months') {
+      titleEl.textContent = '6-Month Roadmap';
+      descEl.textContent = `Completion rate for ${state.showUndated ? 'all' : 'scheduled'} goals in next 6 months`;
+    } else {
+      titleEl.textContent = 'All Goals Tracker';
+      descEl.textContent = `Completion rate for ${state.showUndated ? 'all' : 'scheduled'} goals in database`;
+    }
+  }
   
   if (elements.statMg) elements.statMg.textContent = mgCount;
   if (elements.statChitLay) elements.statChitLay.textContent = clCount;
@@ -429,19 +485,47 @@ function calculateStats() {
 }
 
 // --- View 1: Timeline Rendering ---
+function isTaskInTimeframe(task, timeframe) {
+  const dateStr = task.due_date || task.take_action;
+  
+  if (!dateStr) {
+    return state.showUndated;
+  }
+  
+  if (timeframe === 'all') return true;
+  
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return false;
+  
+  const taskDate = new Date(parts[0], parts[1] - 1, parts[2]);
+  const now = new Date();
+  
+  if (timeframe === 'year') {
+    return taskDate.getFullYear() === now.getFullYear();
+  }
+  
+  if (timeframe === '6months') {
+    const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfWindow = new Date(now.getFullYear(), now.getMonth() + 6, 0, 23, 59, 59, 999);
+    return taskDate >= startOfCurrentMonth && taskDate <= endOfWindow;
+  }
+  
+  return true;
+}
+
 function renderTimelineView() {
   const container = elements.timelineItemsContainer;
   if (!container) return;
   
-  // Use tasks in their custom manual sorted order
-  const sortedTasks = state.tasks;
+  const timeframe = state.timelineTimeframe || 'year';
+  const filteredTasks = state.tasks.filter(task => isTaskInTimeframe(task, timeframe));
   
-  if (sortedTasks.length === 0) {
+  if (filteredTasks.length === 0) {
     const isLocalFile = window.location.protocol === 'file:';
     container.innerHTML = `
       <div class="empty-state">
         <i data-lucide="compass" class="empty-icon"></i>
-        <h4>No goals found</h4>
+        <h4>No goals found in this timeframe</h4>
         ${isLocalFile ? `
           <p style="color: var(--danger-color); max-width: 500px; margin: 10px auto 0 auto; line-height: 1.4; font-size: 0.8125rem;">
             <strong>Warning: CORS policy block detected.</strong> You opened this file directly via <code>file://</code>. 
@@ -460,7 +544,7 @@ function renderTimelineView() {
   let html = '';
   let foundFocus = false;
   
-  sortedTasks.forEach((task, index) => {
+  filteredTasks.forEach((task, index) => {
     const isOverdue = isDateOverdue(task.due_date, task.status);
     let statusClass = task.status.toLowerCase().replace(' ', '-');
     if (isOverdue) statusClass = 'overdue';
@@ -934,6 +1018,109 @@ async function handleDeleteBtnClick() {
   }
 }
 
+// Touch-based reordering state and handlers for mobile (Press & Hold)
+let touchTimer = null;
+let touchDraggedEl = null;
+let initialY = 0;
+let isLongPressActive = false;
+
+function handleTouchStart(e) {
+  const item = e.target.closest('.timeline-item');
+  if (!item) return;
+  
+  // Don't trigger on checkboxes
+  if (e.target.closest('.timeline-node')) return;
+  
+  const touch = e.touches[0];
+  initialY = touch.clientY;
+  touchDraggedEl = item;
+  isLongPressActive = false;
+  
+  touchTimer = setTimeout(() => {
+    isLongPressActive = true;
+    item.classList.add('dragging');
+    window.isDraggingTimeline = true; // lock click to edit modal
+    
+    if (navigator.vibrate) {
+      try {
+        navigator.vibrate(50); // Haptic feedback
+      } catch (err) {}
+    }
+    
+    // Lock scrolling on touch devices during drag
+    document.body.style.overflow = 'hidden';
+  }, 400); // 400ms hold
+}
+
+function handleTouchMove(e) {
+  if (!touchDraggedEl) return;
+  
+  const touch = e.touches[0];
+  const deltaY = Math.abs(touch.clientY - initialY);
+  
+  if (!isLongPressActive) {
+    if (deltaY > 10) {
+      clearTimeout(touchTimer);
+      touchDraggedEl = null;
+    }
+    return;
+  }
+  
+  e.preventDefault();
+  
+  const clientY = touch.clientY;
+  const container = document.getElementById('timelineItemsContainer');
+  if (!container) return;
+  
+  // Find all OTHER visible timeline items (excluding the dragged one)
+  const items = Array.from(container.querySelectorAll('.timeline-item:not(.dragging)'));
+  if (items.length === 0) return;
+  
+  const firstRect = items[0].getBoundingClientRect();
+  const lastRect = items[items.length - 1].getBoundingClientRect();
+  
+  // Handle dragging above the first item
+  if (clientY < firstRect.top + firstRect.height / 2) {
+    container.insertBefore(touchDraggedEl, items[0]);
+    return;
+  }
+  
+  // Handle dragging below the last item
+  if (clientY > lastRect.bottom - lastRect.height / 2) {
+    container.appendChild(touchDraggedEl);
+    return;
+  }
+  
+  // Find the item we are dragging over and insert relative to it
+  for (const item of items) {
+    const rect = item.getBoundingClientRect();
+    if (clientY >= rect.top && clientY <= rect.bottom) {
+      const next = (clientY - rect.top) / rect.height > 0.5;
+      container.insertBefore(touchDraggedEl, next ? item.nextSibling : item);
+      break;
+    }
+  }
+}
+
+function handleTouchEnd(e) {
+  clearTimeout(touchTimer);
+  
+  if (touchDraggedEl) {
+    touchDraggedEl.classList.remove('dragging');
+    
+    if (isLongPressActive) {
+      saveManualOrder();
+      document.body.style.overflow = '';
+      setTimeout(() => {
+        window.isDraggingTimeline = false;
+      }, 150);
+    }
+  }
+  
+  touchDraggedEl = null;
+  isLongPressActive = false;
+}
+
 // --- Event Listeners Setup ---
 function setupEventListeners() {
   elements.themeToggleBtn.addEventListener('click', toggleTheme);
@@ -1089,6 +1276,7 @@ function setupEventListeners() {
   // Timeline Drag & Drop manual sorting
   const timelineContainer = elements.timelineItemsContainer;
   if (timelineContainer) {
+    // Desktop Drag & Drop
     timelineContainer.addEventListener('dragstart', (e) => {
       const item = e.target.closest('.timeline-item');
       if (!item) return;
@@ -1119,6 +1307,32 @@ function setupEventListeners() {
         window.isDraggingTimeline = false;
       }, 100);
     });
+
+    // Mobile Press & Hold Reordering
+    timelineContainer.addEventListener('touchstart', handleTouchStart, { passive: false });
+    timelineContainer.addEventListener('touchmove', handleTouchMove, { passive: false });
+    timelineContainer.addEventListener('touchend', handleTouchEnd);
+    timelineContainer.addEventListener('touchcancel', handleTouchEnd);
+  }
+
+  // Timeline Timeframe Filter dropdown change listener
+  if (elements.timelineTimeframeFilter) {
+    elements.timelineTimeframeFilter.addEventListener('change', (e) => {
+      state.timelineTimeframe = e.target.value;
+      calculateStats();
+      renderTimelineView();
+      lucide.createIcons();
+    });
+  }
+
+  // Timeline Undated Goals Toggle change listener
+  if (elements.timelineUndatedToggle) {
+    elements.timelineUndatedToggle.addEventListener('change', (e) => {
+      state.showUndated = e.target.checked;
+      calculateStats();
+      renderTimelineView();
+      lucide.createIcons();
+    });
   }
 }
 
@@ -1126,11 +1340,28 @@ function saveManualOrder() {
   const timelineItemsContainer = document.getElementById('timelineItemsContainer');
   if (!timelineItemsContainer) return;
   const itemEls = timelineItemsContainer.querySelectorAll('.timeline-item');
-  const order = Array.from(itemEls).map(el => el.getAttribute('data-id')).filter(Boolean);
-  localStorage.setItem('timeline_order', JSON.stringify(order));
+  const visibleOrder = Array.from(itemEls).map(el => el.getAttribute('data-id')).filter(Boolean);
   
-  // Re-sort state.tasks to match the new manual order
-  const orderMap = new Map(order.map((id, index) => [id, index]));
+  // Merge the new order of visible tasks into the full list order
+  const currentTasks = state.tasks;
+  const visibleSet = new Set(visibleOrder);
+  
+  const newOrderIds = [];
+  let visibleIndex = 0;
+  currentTasks.forEach(task => {
+    if (visibleSet.has(task.id)) {
+      if (visibleIndex < visibleOrder.length) {
+        newOrderIds.push(visibleOrder[visibleIndex++]);
+      }
+    } else {
+      newOrderIds.push(task.id);
+    }
+  });
+  
+  localStorage.setItem('timeline_order', JSON.stringify(newOrderIds));
+  
+  // Re-sort state.tasks to match newOrderIds
+  const orderMap = new Map(newOrderIds.map((id, index) => [id, index]));
   state.tasks.sort((a, b) => {
     const hasA = orderMap.has(a.id);
     const hasB = orderMap.has(b.id);

@@ -309,9 +309,17 @@ html[data-theme="light"] .theme-toggle-btn .moon-icon { display: block; }
   grid-template-columns: 1fr;
   gap: 20px;
 }
-@media (min-width: 900px) {
+@media (min-width: 768px) and (max-width: 1100px) {
   .stats-overview {
-    grid-template-columns: 400px 1fr;
+    grid-template-columns: 1fr 1fr;
+  }
+  .stat-cards-grid {
+    grid-column: span 2;
+  }
+}
+@media (min-width: 1100px) {
+  .stats-overview {
+    grid-template-columns: 360px 360px 1fr;
   }
 }
 
@@ -345,6 +353,85 @@ html[data-theme="light"] .theme-toggle-btn .moon-icon { display: block; }
   width: 18px;
   height: 18px;
   color: var(--accent);
+}
+
+/* Specific Ring Matrix Card & Year Progress Card */
+.stat-card.year-progress-card {
+  background: var(--bg-glass-card);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: var(--shadow-sm);
+  justify-content: space-between;
+}
+
+.year-progress-stats {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  background: rgba(var(--bg-secondary-rgb), 0.3);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.progress-stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.stat-val-large {
+  font-family: var(--font-family-title);
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.stat-label-sub {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.progress-bar-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.progress-bar-container {
+  height: 8px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: var(--accent-gradient);
+  border-radius: var(--radius-full);
+  width: 0%;
+  transition: width 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 10px rgba(124, 58, 237, 0.4);
+}
+
+.progress-bar-percent {
+  font-family: var(--font-family-title);
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--accent-light);
+  align-self: flex-end;
 }
 
 /* Concentric Ring Graphic & Legend */
@@ -792,6 +879,113 @@ html[data-theme="light"] .concentric-progress circle.bg {
 .view-header p {
   color: var(--text-secondary);
   font-size: 0.875rem;
+}
+
+.view-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.timeline-filter-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.timeline-filter-wrapper .filter-icon {
+  position: absolute;
+  left: 14px;
+  width: 15px;
+  height: 15px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.timeline-select {
+  font-family: var(--font-family-body);
+  font-size: 0.875rem;
+  font-weight: 550;
+  padding: 10px 16px 10px 38px;
+  background: var(--bg-glass-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  outline: none;
+  cursor: pointer;
+  transition: var(--transition-normal);
+}
+
+.timeline-select:focus {
+  border-color: var(--border-focus);
+}
+
+.undated-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+  background: var(--bg-glass-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 10px 16px;
+  transition: var(--transition-normal);
+}
+
+.undated-toggle:hover {
+  border-color: var(--border-focus);
+}
+
+.undated-toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: relative;
+  display: inline-block;
+  width: 34px;
+  height: 18px;
+  background-color: var(--border-color);
+  border-radius: var(--radius-full);
+  transition: var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.toggle-slider::before {
+  position: absolute;
+  content: "";
+  height: 12px;
+  width: 12px;
+  left: 3px;
+  bottom: 3px;
+  background-color: var(--text-muted);
+  border-radius: var(--radius-full);
+  transition: var(--transition-bounce);
+}
+
+.undated-toggle input:checked + .toggle-slider {
+  background-color: var(--accent);
+}
+
+.undated-toggle input:checked + .toggle-slider::before {
+  transform: translateX(16px);
+  background-color: white;
+}
+
+.toggle-text {
+  font-family: var(--font-family-body);
+  font-size: 0.875rem;
+  font-weight: 550;
+  color: var(--text-secondary);
+  transition: var(--transition-fast);
+}
+
+.undated-toggle:hover .toggle-text {
+  color: var(--text-primary);
 }
 
 /* --- Buttons --- */
@@ -1843,6 +2037,23 @@ html[data-theme="light"] .concentric-progress circle.bg {
   }
   .view-header .primary-btn {
     width: 100%;
+  }
+  .view-header-actions {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .timeline-filter-wrapper {
+    width: 100%;
+  }
+  .timeline-select {
+    width: 100%;
+  }
+  .undated-toggle {
+    width: 100%;
+    justify-content: space-between;
+    padding: 10px 16px;
   }
 
   /* 7. Directory Table Card Transformation */
