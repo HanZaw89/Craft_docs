@@ -3,336 +3,73 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Han's Life Progress (Craft Connect Edition)</title>
-    <script>
-        let state = [];
-
-        window.onload = function() {
-            // Set default placeholder URL if storage is bare
-            if (!localStorage.getItem("craft_imagine_url")) {
-                document.getElementById("apiBaseUrl").value = "https://connect.craft.do/links/6RGvTiyQTZ7/api/v1";
-            } else {
-                document.getElementById("apiBaseUrl").value = localStorage.getItem("craft_imagine_url");
-            }
-            
-            if(localStorage.getItem("craft_imagine_token")) {
-                document.getElementById("apiToken").value = localStorage.getItem("craft_imagine_token");
-            }
-            
-            // Auto-sync on boot if a URL is available
-            if (document.getElementById("apiBaseUrl").value) {
-                syncWithCraft();
-            }
-        }
-
-        async function syncWithCraft() {
-            const baseUrl = document.getElementById("apiBaseUrl").value.trim().replace(/\/$/, "");
-            const token = document.getElementById("apiToken").value.trim();
-
-            if(!baseUrl) return alert("Please enter your Craft Imagine API Base URL.");
-
-            localStorage.setItem("craft_imagine_url", baseUrl);
-            localStorage.setItem("craft_imagine_token", token);
-
-            document.getElementById("syncStatus").innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Querying Documents...`;
-
-            try {
-                const headers = { "Accept": "application/json" };
-                if (token) headers["Authorization"] = `Bearer ${token}`;
-
-                // NATIVE FIX: Craft Imagine GET /blocks fetches all schema strings in space scope
-                const response = await fetch(`${baseUrl}/blocks`, { method: "GET", headers });
-                const result = await response.json();
-
-                // Locate structural JSON system configurations inside the doc
-                const dataBlock = result.blocks?.find(b => b.type === "code" && b.content.includes("requires"));
-                if (dataBlock) {
-                    state = JSON.parse(dataBlock.content);
-                } else {
-                    // Pre-population fallback if empty or first boot
-                    state = [
-                        { id: "1", name: "Secure Remote Job", requires: "None", done: false },
-                        { id: "2", name: "Apply for Visa", requires: "1", done: false }
-                    ];
-                    // Save initial fallback state back to Craft right away
-                    await saveChangesToCraft();
-                }
-                document.getElementById("syncStatus").innerHTML = `<span class="w-2 h-2 rounded-full bg-green-500"></span> Synced Natively`;
-                render();
-            } catch (err) {
-                console.error(err);
-                document.getElementById("syncStatus").innerHTML = `<span class="w-2 h-2 rounded-full bg-red-500"></span> Sync Failed`;
-            }
-        }
-
-        async function saveChangesToCraft() {
-            const baseUrl = localStorage.getItem("craft_imagine_url");
-            const token = localStorage.getItem("craft_imagine_token");
-
-            if (!baseUrl) return;
-
-            // Format readable markdown output summary for visual render inside Craft space
-            let markdownView = "### 🚀 Han's Life Progress Roadmap\n\n";
-            state.forEach(t => {
-                markdownView += `${t.done ? '🟢' : '⚪'} **${t.name}** ${t.requires !== "None" ? `_(Depends on Goal #${t.requires})_` : ''}\n`;
-            });
-            markdownView += `\n\n_Sync execution verified from web application workspace at: ${new Date().toLocaleTimeString()}_`;
-
-            const headers = { 
-                "Content-Type": "application/json",
-                "Accept": "application/json"
-            };
-            if (token) headers["Authorization"] = `Bearer ${token}`;
-
-            try {
-                // NATIVE FIX: Changed method to POST and endpoint target to write arrays cleanly
-                const response = await fetch(`${baseUrl}/blocks`, {
-                    method: "POST",
-                    headers: headers,
-                    body: JSON.stringify({
-                        blocks: [
-                            { type: "text", style: { fontStyle: "code" }, content: "SYSTEM DATA POOL - DO NOT EDIT MANUALLY" },
-                            { type: "code", content: JSON.stringify(state) },
-                            { type: "text", content: markdownView }
-                        ]
-                    })
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP network update failure: ${response.status}`);
-                }
-            } catch (error) {
-                console.error("Failed to commit updates back to Craft space cloud storage:", error);
-            }
-        }
-
-        function render() {
-            const container = document.getElementById("timelineContainer");
-            const select = document.getElementById("taskDependency");
-            container.innerHTML = "";
-            
-            select.innerHTML = '<option value="None">None (Start Immediately)</option>';
-            state.forEach(t => { select.innerHTML += `<option value="${t.id}">${t.name}</option>`; });
-
-            let completed = 0;
-            let nextStepFound = false;
-
-            state.forEach(task => {
-                if(task.done) completed++;
-
-                let isLocked = false;
-                if(task.requires !== "None") {
-                    const prereq = state.find(t => t.id === task.requires);
-                    if(prereq && !prereq.done) isLocked = true;
-                }
-
-                if(!task.done && !isLocked && !nextStepFound) {
-                    document.getElementById("nextStep").innerText = task.name;
-                    nextStepFound = true;
-                }
-
-                const card = document.createElement("div");
-                card.className = `p-4 rounded-xl border flex items-center justify-between transition-all ${task.done ? 'bg-zinc-900/30 border-zinc-800/40 opacity-50' : isLocked ? 'bg-zinc-900/10 border-zinc-900 text-zinc-600' : 'bg-[#121215] border-zinc-800 hover:border-zinc-700'}`;
-                
-                card.innerHTML = `
-                    <div class="flex items-center gap-3">
-                        <input type="checkbox" ${isLocked ? 'disabled' : ''} ${task.done ? 'checked' : ''} onchange="toggleTask('${task.id}')" class="w-4 h-4 text-indigo-600 bg-zinc-900 border-zinc-700 rounded focus:ring-indigo-500">
-                        <span class="text-sm ${task.done ? 'line-through text-zinc-500' : 'text-zinc-200'}">${isLocked ? '🔒 ' : ''}${task.name}</span>
-                    </div>
-                    <button onclick="deleteTask('${task.id}')" class="text-xs text-zinc-600 hover:text-red-400 transition-colors">Delete</button>
-                `;
-                container.appendChild(card);
-            });
-
-            if (state.length === 0) {
-                document.getElementById("nextStep").innerText = "All clear / Empty";
-            }
-
-            const pct = state.length > 0 ? Math.round((completed / state.length) * 100) : 0;
-            document.getElementById("progressPercent").innerText = pct + "%";
-            document.getElementById("progressFraction").innerText = `${completed}/${state.length} complete`;
-            document.getElementById("progressBar").style.width = pct + "%";
-        }
-
-        async function toggleTask(id) {
-            const t = state.find(x => x.id === id);
-            if(t) {
-                t.done = !t.done;
-                render();
-                await saveChangesToCraft();
-            }
-        }
-
-        async function deleteTask(id) {
-            state = state.filter(x => x.id !== id);
-            state.forEach(x => { if(x.requires === id) x.requires = "None"; });
-            render();
-            await saveChangesToCraft();
-        }
-
-        document.getElementById("goalForm").addEventListener("submit", async function(e) {
-            e.preventDefault();
-            const name = document.getElementById("taskName").value.trim();
-            const requires = document.getElementById("taskDependency").value;
-            const id = Date.now().toString();
-
-            state.push({ id, name, requires, done: false });
-            render();
-            this.reset();
-            await saveChangesToCraft();
-        });
-    </script>
+    <title>Han's Life Progress (Craft Embed)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
         body { font-family: 'Inter', sans-serif; }
     </style>
 </head>
-<body class="bg-[#0A0A0C] text-[#E4E4E7] min-h-screen antialiased">
+<body class="bg-[#0A0A0C] text-[#E4E4E7] antialiased p-4">
 
-    <div class="max-w-4xl mx-auto px-6 py-12">
-        <!-- CREDENTIAL MANAGEMENT -->
-        <header class="mb-8 p-4 bg-zinc-900/40 border border-zinc-800 standard-round rounded-xl flex flex-wrap gap-4 items-center justify-between">
-            <div class="flex items-center gap-3 flex-wrap flex-1">
-                <input type="text" id="apiBaseUrl" placeholder="https://connect.craft.do/links/6RGvTiyQTZ7/api/v1" class="bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 flex-1 min-w-[280px]">
-                <input type="password" id="apiToken" placeholder="Optional API Token" class="bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 w-44">
-            </div>
-            <button onclick="syncWithCraft()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-lg px-4 py-1.5 text-xs transition-colors">Sync Workspace</button>
-        </header>
+    <!-- COMPACT DASHBOARD -->
+    <div class="max-w-md mx-auto space-y-4">
+        <div>
+            <h1 class="text-lg font-bold text-white">Han's Life Progress</h1>
+            <p class="text-[11px] text-zinc-400">Sequential Milestones & Dependencies</p>
+        </div>
 
-        <!-- APP HEADER -->
-        <div class="flex justify-between items-center mb-12 pb-6 border-b border-zinc-800/80">
+        <!-- COMPLETION METER -->
+        <div class="bg-[#121215] border border-zinc-800 rounded-xl p-3 flex items-center justify-between gap-4">
             <div>
-                <h1 class="text-2xl font-bold tracking-tight text-white">Han's Life Progress</h1>
-                <p class="text-sm text-zinc-400 mt-1">Powered natively by Craft Imagine API</p>
+                <span id="progressPercent" class="text-2xl font-bold text-white">0%</span>
+                <p id="progressFraction" class="text-[10px] text-zinc-500">0/0 done</p>
             </div>
-            <div id="syncStatus" class="text-xs px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-500 flex items-center gap-2">
-                <span class="w-2 h-2 rounded-full bg-zinc-700"></span> Offline / Disconnected
+            <div class="flex-1 max-w-[120px]">
+                <div class="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden">
+                    <div id="progressBar" class="bg-indigo-500 h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
             </div>
         </div>
 
-        <!-- METRICS METERS -->
-        <section class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
-            <div class="bg-[#121215] border border-zinc-800/60 rounded-xl p-5">
-                <p class="text-xs font-medium text-zinc-500 uppercase tracking-wider">Overall Completion</p>
-                <div class="flex items-baseline gap-2 mt-2">
-                    <span id="progressPercent" class="text-3xl font-bold text-white tracking-tight">0%</span>
-                    <span id="progressFraction" class="text-xs text-zinc-500">0/0 completed</span>
-                </div>
-                <div class="w-full bg-zinc-800 h-1.5 rounded-full mt-4 overflow-hidden">
-                    <div id="progressBar" class="bg-indigo-500 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
-                </div>
-            </div>
-            <div class="bg-[#121215] border border-zinc-800/60 rounded-xl p-5">
-                <p class="text-xs font-medium text-zinc-500 uppercase tracking-wider">Next Prerequisite Action</p>
-                <div class="text-sm font-medium text-indigo-400 mt-3 truncate" id="nextStep">Connect app to sync pipeline</div>
-                <p class="text-xs text-zinc-500 mt-2">Calculated via sequential ordering logic</p>
-            </div>
-        </section>
+        <!-- INLINE FORM -->
+        <form id="goalForm" class="flex gap-2">
+            <input type="text" id="taskName" required placeholder="New Objective..." class="flex-1 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500">
+            <select id="taskDependency" class="hidden"><option value="None">None</option></select>
+            <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-lg px-3 py-1.5 text-xs transition-colors">+</button>
+        </form>
 
-        <!-- INTERFACE GRID -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div class="lg:col-span-1">
-                <div class="bg-[#121215] border border-zinc-800/60 rounded-xl p-5 sticky top-6">
-                    <h2 class="text-sm font-semibold text-white mb-4">Add Objective</h2>
-                    <form id="goalForm" class="space-y-4">
-                        <div>
-                            <label class="block text-xs font-medium text-zinc-400 mb-1">Goal / Task</label>
-                            <input type="text" id="taskName" required placeholder="e.g., Apply for Visa" class="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium text-zinc-400 mb-1">Prerequisite Goal</label>
-                            <select id="taskDependency" class="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
-                                <option value="None">None (Start Immediately)</option>
-                            </select>
-                        </div>
-                        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-lg py-2 text-sm transition-colors shadow-lg shadow-indigo-600/10">Append to Roadmap</button>
-                    </form>
-                </div>
-            </div>
-
-            <div class="lg:col-span-2">
-                <div id="timelineContainer" class="space-y-3">
-                    <div class="text-center py-12 border border-dashed border-zinc-800 rounded-xl text-zinc-500 text-sm">Provide your Imagine endpoint URL above to load your active goals.</div>
-                </div>
-            </div>
+        <!-- TIMELINE LIST -->
+        <div id="timelineContainer" class="space-y-2">
+            <!-- Items render here -->
         </div>
     </div>
 
     <script>
         let state = [];
-
-        window.onload = function() {
-            if(localStorage.getItem("craft_imagine_url")) {
-                document.getElementById("apiBaseUrl").value = localStorage.getItem("craft_imagine_url");
-                if(localStorage.getItem("craft_imagine_token")) {
-                    document.getElementById("apiToken").value = localStorage.getItem("craft_imagine_token");
-                }
-                syncWithCraft();
-            }
-        }
+        // Extract your Craft Imagine Token directly from the URL query params automatically
+        const urlParams = new URLSearchParams(window.location.search);
+        const baseUrl = "https://connect.craft.do/links/6RGvTiyQTZ7/api/v1";
 
         async function syncWithCraft() {
-            const baseUrl = document.getElementById("apiBaseUrl").value.trim().replace(/\/$/, "");
-            const token = document.getElementById("apiToken").value.trim();
-
-            if(!baseUrl) return alert("Please enter your Craft Imagine API Base URL.");
-
-            localStorage.setItem("craft_imagine_url", baseUrl);
-            localStorage.setItem("craft_imagine_token", token);
-
-            document.getElementById("syncStatus").innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Querying Documents...`;
-
             try {
-                // Fetch current content from the native Craft Imagine URL
-                const headers = { "Accept": "application/json" };
-                if (token) headers["Authorization"] = `Bearer ${token}`;
-
-                const response = await fetch(`${baseUrl}/blocks`, { headers });
+                const response = await fetch(`${baseUrl}/blocks`, { method: "GET", headers: { "Accept": "application/json" } });
                 const result = await response.json();
-
-                // Locate structural JSON system configurations inside the doc
                 const dataBlock = result.blocks?.find(b => b.type === "code" && b.content.includes("requires"));
-                if (dataBlock) {
-                    state = JSON.parse(dataBlock.content);
-                } else {
-                    // Pre-population fallback if empty
-                    state = [
-                        { id: "1", name: "Secure Remote Job", requires: "None", done: false },
-                        { id: "2", name: "Apply for Visa", requires: "1", done: false }
-                    ];
-                }
-                document.getElementById("syncStatus").innerHTML = `<span class="w-2 h-2 rounded-full bg-green-500"></span> Synced Natively`;
+                if (dataBlock) state = JSON.parse(dataBlock.content);
                 render();
-            } catch (err) {
-                console.error(err);
-                document.getElementById("syncStatus").innerHTML = `<span class="w-2 h-2 rounded-full bg-red-500"></span> Sync Failed`;
-            }
+            } catch (err) { console.error(err); }
         }
 
         async function saveChangesToCraft() {
-            const baseUrl = localStorage.getItem("craft_imagine_url");
-            const token = localStorage.getItem("craft_imagine_token");
-
-            // Format readable markdown output summary for view block within Craft
             let markdownView = "### 🚀 Han's Life Progress Roadmap\n\n";
-            state.forEach(t => {
-                markdownView += `${t.done ? '🟢' : '⚪'} **${t.name}** ${t.requires !== "None" ? `_(Depends on Goal #${t.requires})_` : ''}\n`;
-            });
-            markdownView += `\n\n_Sync execution verified from GitHub Pages app at: ${new Date().toLocaleTimeString()}_`;
+            state.forEach(t => { markdownView += `${t.done ? '🟢' : '⚪'} **${t.name}**\n`; });
 
-            const headers = { 
-                "Content-Type": "application/json",
-                "Accept": "application/json"
-            };
-            if (token) headers["Authorization"] = `Bearer ${token}`;
-
-            // Push payload back up to rewrite document state seamlessly
             await fetch(`${baseUrl}/blocks`, {
-                method: "PUT",
-                headers: headers,
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Accept": "application/json" },
                 body: JSON.stringify({
                     blocks: [
-                        { type: "text", style: { fontStyle: "code" }, content: "SYSTEM DATA POOL - DO NOT EDIT MANUALLY" },
                         { type: "code", content: JSON.stringify(state) },
                         { type: "text", content: markdownView }
                     ]
@@ -342,38 +79,18 @@
 
         function render() {
             const container = document.getElementById("timelineContainer");
-            const select = document.getElementById("taskDependency");
             container.innerHTML = "";
-            
-            select.innerHTML = '<option value="None">None (Start Immediately)</option>';
-            state.forEach(t => { select.innerHTML += `<option value="${t.id}">${t.name}</option>`; });
-
             let completed = 0;
-            let nextStepFound = false;
 
             state.forEach(task => {
                 if(task.done) completed++;
-
-                let isLocked = false;
-                if(task.requires !== "None") {
-                    const prereq = state.find(t => t.id === task.requires);
-                    if(prereq && !prereq.done) isLocked = true;
-                }
-
-                if(!task.done && !isLocked && !nextStepFound) {
-                    document.getElementById("nextStep").innerText = task.name;
-                    nextStepFound = true;
-                }
-
                 const card = document.createElement("div");
-                card.className = `p-4 rounded-xl border flex items-center justify-between transition-all ${task.done ? 'bg-zinc-900/30 border-zinc-800/40 opacity-50' : isLocked ? 'bg-zinc-900/10 border-zinc-900 text-zinc-600' : 'bg-[#121215] border-zinc-800 hover:border-zinc-700'}`;
-                
+                card.className = `p-3 rounded-xl border flex items-center justify-between ${task.done ? 'bg-zinc-900/30 border-zinc-800/40 opacity-50' : 'bg-[#121215] border-zinc-800'}`;
                 card.innerHTML = `
-                    <div class="flex items-center gap-3">
-                        <input type="checkbox" ${isLocked ? 'disabled' : ''} ${task.done ? 'checked' : ''} onchange="toggleTask('${task.id}')" class="w-4 h-4 text-indigo-600 bg-zinc-900 border-zinc-700 rounded focus:ring-indigo-500">
-                        <span class="text-sm ${task.done ? 'line-through text-zinc-500' : 'text-zinc-200'}">${isLocked ? '🔒 ' : ''}${task.name}</span>
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" ${task.done ? 'checked' : ''} onchange="toggleTask('${task.id}')" class="w-4 h-4 text-indigo-600 bg-zinc-900 border-zinc-700 rounded">
+                        <span class="text-xs ${task.done ? 'line-through text-zinc-500' : 'text-zinc-200'}">${task.name}</span>
                     </div>
-                    <button onclick="deleteTask('${task.id}')" class="text-xs text-zinc-600 hover:text-red-400 transition-colors">Delete</button>
                 `;
                 container.appendChild(card);
             });
@@ -386,31 +103,19 @@
 
         async function toggleTask(id) {
             const t = state.find(x => x.id === id);
-            if(t) {
-                t.done = !t.done;
-                render();
-                await saveChangesToCraft();
-            }
-        }
-
-        async function deleteTask(id) {
-            state = state.filter(x => x.id !== id);
-            state.forEach(x => { if(x.requires === id) x.requires = "None"; });
-            render();
-            await saveChangesToCraft();
+            if(t) { t.done = !t.done; render(); await saveChangesToCraft(); }
         }
 
         document.getElementById("goalForm").addEventListener("submit", async function(e) {
             e.preventDefault();
             const name = document.getElementById("taskName").value.trim();
-            const requires = document.getElementById("taskDependency").value;
-            const id = Date.now().toString();
-
-            state.push({ id, name, requires, done: false });
+            state.push({ id: Date.now().toString(), name, requires: "None", done: false });
             render();
             this.reset();
             await saveChangesToCraft();
         });
+
+        window.onload = syncWithCraft;
     </script>
 </body>
 </html>
