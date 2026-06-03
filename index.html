@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Han's Life Progress (GitHub Edition)</title>
+    <title>Han's Life Progress (Craft Connect Edition)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -13,31 +13,30 @@
 <body class="bg-[#0A0A0C] text-[#E4E4E7] min-h-screen antialiased">
 
     <div class="max-w-4xl mx-auto px-6 py-12">
-        <!-- COUPLING/API CONFIG PANEL -->
-        <header class="mb-8 p-4 bg-zinc-900/50 border border-zinc-800 rounded-xl flex flex-wrap gap-4 items-center justify-between">
-            <div class="flex items-center gap-3 flex-wrap">
-                <input type="password" id="craftToken" placeholder="Paste Craft API Token" class="bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 w-52">
-                <input type="text" id="spaceId" placeholder="Space ID" class="bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 w-36">
-                <input type="text" id="docId" placeholder="Document ID" class="bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 w-36">
+        <!-- CREDENTIAL MANAGEMENT -->
+        <header class="mb-8 p-4 bg-zinc-900/40 border border-zinc-800 standard-round rounded-xl flex flex-wrap gap-4 items-center justify-between">
+            <div class="flex items-center gap-3 flex-wrap flex-1">
+                <input type="text" id="apiBaseUrl" placeholder="https://connect.craft.do/links/6RGvTiyQTZ7/api/v1" class="bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 flex-1 min-w-[280px]">
+                <input type="password" id="apiToken" placeholder="Optional API Token" class="bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 w-44">
             </div>
-            <button onclick="connectAndFetch()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-lg px-4 py-1.5 text-xs transition-colors">Sync Craft Doc</button>
+            <button onclick="syncWithCraft()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-lg px-4 py-1.5 text-xs transition-colors">Sync Workspace</button>
         </header>
 
-        <!-- HEADER -->
+        <!-- APP HEADER -->
         <div class="flex justify-between items-center mb-12 pb-6 border-b border-zinc-800/80">
             <div>
                 <h1 class="text-2xl font-bold tracking-tight text-white">Han's Life Progress</h1>
-                <p class="text-sm text-zinc-400 mt-1">Live cloud-synced timeline via Craft REST API</p>
+                <p class="text-sm text-zinc-400 mt-1">Powered natively by Craft Imagine API</p>
             </div>
             <div id="syncStatus" class="text-xs px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-500 flex items-center gap-2">
-                <span class="w-2 h-2 rounded-full bg-zinc-700"></span> Not Connected
+                <span class="w-2 h-2 rounded-full bg-zinc-700"></span> Offline / Disconnected
             </div>
         </div>
 
-        <!-- PROGRESS DASHBOARD -->
+        <!-- METRICS METERS -->
         <section class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
             <div class="bg-[#121215] border border-zinc-800/60 rounded-xl p-5">
-                <p class="text-xs font-medium text-zinc-500 uppercase tracking-wider">Overall Progress</p>
+                <p class="text-xs font-medium text-zinc-500 uppercase tracking-wider">Overall Completion</p>
                 <div class="flex items-baseline gap-2 mt-2">
                     <span id="progressPercent" class="text-3xl font-bold text-white tracking-tight">0%</span>
                     <span id="progressFraction" class="text-xs text-zinc-500">0/0 completed</span>
@@ -47,129 +46,118 @@
                 </div>
             </div>
             <div class="bg-[#121215] border border-zinc-800/60 rounded-xl p-5">
-                <p class="text-xs font-medium text-zinc-500 uppercase tracking-wider">Next Locked/Unlocked Step</p>
-                <div class="text-sm font-medium text-indigo-400 mt-3 truncate" id="nextStep">Connect to view active goal</div>
-                <p class="text-xs text-zinc-500 mt-2">Evaluated via linear dependencies</p>
+                <p class="text-xs font-medium text-zinc-500 uppercase tracking-wider">Next Prerequisite Action</p>
+                <div class="text-sm font-medium text-indigo-400 mt-3 truncate" id="nextStep">Connect app to sync pipeline</div>
+                <p class="text-xs text-zinc-500 mt-2">Calculated via sequential ordering logic</p>
             </div>
         </section>
 
-        <!-- LAYOUT -->
+        <!-- INTERFACE GRID -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div class="lg:col-span-1">
                 <div class="bg-[#121215] border border-zinc-800/60 rounded-xl p-5 sticky top-6">
-                    <h2 class="text-sm font-semibold text-white mb-4">Add Life Milestone</h2>
+                    <h2 class="text-sm font-semibold text-white mb-4">Add Objective</h2>
                     <form id="goalForm" class="space-y-4">
                         <div>
                             <label class="block text-xs font-medium text-zinc-400 mb-1">Goal / Task</label>
                             <input type="text" id="taskName" required placeholder="e.g., Apply for Visa" class="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-zinc-400 mb-1">Prerequisite Dependency</label>
+                            <label class="block text-xs font-medium text-zinc-400 mb-1">Prerequisite Goal</label>
                             <select id="taskDependency" class="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
-                                <option value="None">None (Immediate Start)</option>
+                                <option value="None">None (Start Immediately)</option>
                             </select>
                         </div>
-                        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-lg py-2 text-sm transition-colors shadow-lg">Append to Roadmap</button>
+                        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-lg py-2 text-sm transition-colors shadow-lg shadow-indigo-600/10">Append to Roadmap</button>
                     </form>
                 </div>
             </div>
 
             <div class="lg:col-span-2">
                 <div id="timelineContainer" class="space-y-3">
-                    <div class="text-center py-12 border border-dashed border-zinc-800 rounded-xl text-zinc-500 text-sm">Enter credentials above to sync your Craft roadmap dataset.</div>
+                    <div class="text-center py-12 border border-dashed border-zinc-800 rounded-xl text-zinc-500 text-sm">Provide your Imagine endpoint URL above to load your active goals.</div>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        // Use a standard public proxy to completely bypass browser CORS blocks
-        const PROXY_URL = "https://cors-anywhere.herokuapp.com/";
-        const CRAFT_API_BASE = "https://api.craft.do/v1/spaces";
-
         let state = [];
 
-        // Save keys in localStorage locally so you don't have to retype them on refresh
         window.onload = function() {
-            if(localStorage.getItem("craft_tok")) document.getElementById("craftToken").value = localStorage.getItem("craft_tok");
-            if(localStorage.getItem("craft_space")) document.getElementById("spaceId").value = localStorage.getItem("craft_space");
-            if(localStorage.getItem("craft_doc")) document.getElementById("docId").value = localStorage.getItem("craft_doc");
-            if(localStorage.getItem("craft_tok")) connectAndFetch();
+            if(localStorage.getItem("craft_imagine_url")) {
+                document.getElementById("apiBaseUrl").value = localStorage.getItem("craft_imagine_url");
+                if(localStorage.getItem("craft_imagine_token")) {
+                    document.getElementById("apiToken").value = localStorage.getItem("craft_imagine_token");
+                }
+                syncWithCraft();
+            }
         }
 
-        async function connectAndFetch() {
-            const token = document.getElementById("craftToken").value;
-            const spaceId = document.getElementById("spaceId").value;
-            const docId = document.getElementById("docId").value;
-            
-            if(!token || !spaceId || !docId) return alert("Please fill in all Craft authorization details.");
-            
-            localStorage.setItem("craft_tok", token);
-            localStorage.setItem("craft_space", spaceId);
-            localStorage.setItem("craft_doc", docId);
+        async function syncWithCraft() {
+            const baseUrl = document.getElementById("apiBaseUrl").value.trim().replace(/\/$/, "");
+            const token = document.getElementById("apiToken").value.trim();
 
-            document.getElementById("syncStatus").innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Fetching...`;
+            if(!baseUrl) return alert("Please enter your Craft Imagine API Base URL.");
+
+            localStorage.setItem("craft_imagine_url", baseUrl);
+            localStorage.setItem("craft_imagine_token", token);
+
+            document.getElementById("syncStatus").innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Querying Documents...`;
 
             try {
-                // Fetch the deep page content via the Proxy API
-                const res = await fetch(`${PROXY_URL}${CRAFT_API_BASE}/${spaceId}/documents/${docId}`, {
-                    headers: { "Authorization": `Bearer ${token}` }
-                });
-                const json = await res.json();
-                
-                if (json && json.document && json.document.blocks) {
-                    parseBlocksToState(json.document.blocks);
-                    document.getElementById("syncStatus").innerHTML = `<span class="w-2 h-2 rounded-full bg-green-500"></span> Synced to Cloud`;
-                    render();
+                // Fetch current content from the native Craft Imagine URL
+                const headers = { "Accept": "application/json" };
+                if (token) headers["Authorization"] = `Bearer ${token}`;
+
+                const response = await fetch(`${baseUrl}/blocks`, { headers });
+                const result = await response.json();
+
+                // Locate structural JSON system configurations inside the doc
+                const dataBlock = result.blocks?.find(b => b.type === "code" && b.content.includes("requires"));
+                if (dataBlock) {
+                    state = JSON.parse(dataBlock.content);
                 } else {
-                    throw new Error("Invalid document structure or API token layout.");
+                    // Pre-population fallback if empty
+                    state = [
+                        { id: "1", name: "Secure Remote Job", requires: "None", done: false },
+                        { id: "2", name: "Apply for Visa", requires: "1", done: false }
+                    ];
                 }
+                document.getElementById("syncStatus").innerHTML = `<span class="w-2 h-2 rounded-full bg-green-500"></span> Synced Natively`;
+                render();
             } catch (err) {
-                document.getElementById("syncStatus").innerHTML = `<span class="w-2 h-2 rounded-full bg-red-500"></span> Connection Error`;
-                alert("CORS Proxy or API Block Error. Please make sure you have activated access to your temporary cors-anywhere demo session at https://cors-anywhere.herokuapp.com/corsdemo");
+                console.error(err);
+                document.getElementById("syncStatus").innerHTML = `<span class="w-2 h-2 rounded-full bg-red-500"></span> Sync Failed`;
             }
         }
 
-        function parseBlocksToState(blocks) {
-            // Find our custom encoded block matrix or parse markdown lists
-            const codeBlock = blocks.find(b => b.type === "code" || b.content?.includes("ID:"));
-            if(codeBlock) {
-                // If structured schema exists, translate it
-                try { state = JSON.parse(codeBlock.content); } catch(e) { state = []; }
-            } else {
-                // Fallback to structural default schema
-                state = [
-                    { id: "1", name: "Secure Remote Job", requires: "None", done: false },
-                    { id: "2", name: "Apply for Visa", requires: "1", done: false }
-                ];
-            }
-        }
+        async function saveChangesToCraft() {
+            const baseUrl = localStorage.getItem("craft_imagine_url");
+            const token = localStorage.getItem("craft_imagine_token");
 
-        async function pushStateToCraft() {
-            const token = localStorage.getItem("craft_tok");
-            const spaceId = localStorage.getItem("craft_space");
-            const docId = localStorage.getItem("craft_doc");
-
-            // Build a human readable mirror text layout for your actual Craft page view
-            let summaryText = "### Current Goal Roadmap Status\n\n";
+            // Format readable markdown output summary for view block within Craft
+            let markdownView = "### 🚀 Han's Life Progress Roadmap\n\n";
             state.forEach(t => {
-                summaryText += `${t.done ? '🟢' : '⚪'} **${t.name}** ${t.requires !== "None" ? `(Requires Goal #${t.requires})` : ''}\n`;
+                markdownView += `${t.done ? '🟢' : '⚪'} **${t.name}** ${t.requires !== "None" ? `_(Depends on Goal #${t.requires})_` : ''}\n`;
             });
-            summaryText += `\n\n*Last updated via GitHub App: ${new Date().toLocaleTimeString()}*`;
+            markdownView += `\n\n_Sync execution verified from GitHub Pages app at: ${new Date().toLocaleTimeString()}_`;
 
-            // Overwrite doc content blocks via PUT request
-            await fetch(`${PROXY_URL}${CRAFT_API_BASE}/${spaceId}/documents/${docId}`, {
+            const headers = { 
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            };
+            if (token) headers["Authorization"] = `Bearer ${token}`;
+
+            // Push payload back up to rewrite document state seamlessly
+            await fetch(`${baseUrl}/blocks`, {
                 method: "PUT",
-                headers: { 
-                    "Authorization": `Bearer ${token}`,
-                    "Content-Type": "application/json"
-                },
+                headers: headers,
                 body: JSON.stringify({
-                    title: "Han's Life Progress Data",
                     blocks: [
-                        { type: "text", style: { fontStyle: "bold" }, content: "DO NOT EDIT MANUALLY - MANAGED BY GITHUB DASHBOARD" },
+                        { type: "text", style: { fontStyle: "code" }, content: "SYSTEM DATA POOL - DO NOT EDIT MANUALLY" },
                         { type: "code", content: JSON.stringify(state) },
-                        { type: "text", content: summaryText }
+                        { type: "text", content: markdownView }
                     ]
                 })
             });
@@ -180,7 +168,7 @@
             const select = document.getElementById("taskDependency");
             container.innerHTML = "";
             
-            select.innerHTML = '<option value="None">None (Immediate Start)</option>';
+            select.innerHTML = '<option value="None">None (Start Immediately)</option>';
             state.forEach(t => { select.innerHTML += `<option value="${t.id}">${t.name}</option>`; });
 
             let completed = 0;
@@ -201,14 +189,14 @@
                 }
 
                 const card = document.createElement("div");
-                card.className = `p-4 rounded-xl border flex items-center justify-between ${task.done ? 'bg-zinc-900/30 border-zinc-800/40 opacity-60' : isLocked ? 'bg-zinc-900/10 border-zinc-900 text-zinc-600' : 'bg-[#121215] border-zinc-800'}`;
+                card.className = `p-4 rounded-xl border flex items-center justify-between transition-all ${task.done ? 'bg-zinc-900/30 border-zinc-800/40 opacity-50' : isLocked ? 'bg-zinc-900/10 border-zinc-900 text-zinc-600' : 'bg-[#121215] border-zinc-800 hover:border-zinc-700'}`;
                 
                 card.innerHTML = `
                     <div class="flex items-center gap-3">
                         <input type="checkbox" ${isLocked ? 'disabled' : ''} ${task.done ? 'checked' : ''} onchange="toggleTask('${task.id}')" class="w-4 h-4 text-indigo-600 bg-zinc-900 border-zinc-700 rounded focus:ring-indigo-500">
-                        <span class="text-sm ${task.done ? 'line-through text-zinc-500' : ''}">${isLocked ? '🔒 ' : ''}${task.name}</span>
+                        <span class="text-sm ${task.done ? 'line-through text-zinc-500' : 'text-zinc-200'}">${isLocked ? '🔒 ' : ''}${task.name}</span>
                     </div>
-                    <button onclick="deleteTask('${task.id}')" class="text-xs text-zinc-600 hover:text-red-400">Remove</button>
+                    <button onclick="deleteTask('${task.id}')" class="text-xs text-zinc-600 hover:text-red-400 transition-colors">Delete</button>
                 `;
                 container.appendChild(card);
             });
@@ -224,7 +212,7 @@
             if(t) {
                 t.done = !t.done;
                 render();
-                await pushStateToCraft();
+                await saveChangesToCraft();
             }
         }
 
@@ -232,19 +220,19 @@
             state = state.filter(x => x.id !== id);
             state.forEach(x => { if(x.requires === id) x.requires = "None"; });
             render();
-            await pushStateToCraft();
+            await saveChangesToCraft();
         }
 
         document.getElementById("goalForm").addEventListener("submit", async function(e) {
             e.preventDefault();
-            const name = document.getElementById("taskName").value;
+            const name = document.getElementById("taskName").value.trim();
             const requires = document.getElementById("taskDependency").value;
             const id = Date.now().toString();
 
             state.push({ id, name, requires, done: false });
             render();
             this.reset();
-            await pushStateToCraft();
+            await saveChangesToCraft();
         });
     </script>
 </body>
